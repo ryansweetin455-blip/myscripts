@@ -1,6 +1,6 @@
 --[[
 
-	Rayfield Interface Suite
+	miexecutador Interface Suite
 	by Sirius
 
 	shlex  | Designing + Programming
@@ -11,7 +11,7 @@
 ]]
 
 if debugX then
-	warn('Initialising Rayfield')
+	warn('Initialising miexecutador')
 end
 
 local function getService(name)
@@ -71,8 +71,8 @@ end
 
 local requestsDisabled = true --getgenv and getgenv().DISABLE_RAYFIELD_REQUESTS
 local InterfaceBuild = '3K3W'
-local Release = "Build 1.68"
-local RayfieldFolder = "Rayfield"
+local Release = "miexecutador UI"
+local RayfieldFolder = "miexecutador"
 local ConfigurationFolder = RayfieldFolder.."/Configurations"
 local ConfigurationExtension = ".rfld"
 local settingsTable = {
@@ -287,45 +287,45 @@ local RayfieldLibrary = {
 	Flags = {},
 	Theme = {
 		Default = {
-			TextColor = Color3.fromRGB(240, 240, 240),
+			TextColor = Color3.fromRGB(245, 245, 245),
 
-			Background = Color3.fromRGB(25, 25, 25),
-			Topbar = Color3.fromRGB(34, 34, 34),
-			Shadow = Color3.fromRGB(20, 20, 20),
+			Background = Color3.fromRGB(18, 18, 20),
+			Topbar = Color3.fromRGB(24, 24, 28),
+			Shadow = Color3.fromRGB(12, 12, 14),
 
-			NotificationBackground = Color3.fromRGB(20, 20, 20),
-			NotificationActionsBackground = Color3.fromRGB(230, 230, 230),
+			NotificationBackground = Color3.fromRGB(22, 22, 26),
+			NotificationActionsBackground = Color3.fromRGB(235, 235, 235),
 
-			TabBackground = Color3.fromRGB(80, 80, 80),
-			TabStroke = Color3.fromRGB(85, 85, 85),
-			TabBackgroundSelected = Color3.fromRGB(210, 210, 210),
-			TabTextColor = Color3.fromRGB(240, 240, 240),
-			SelectedTabTextColor = Color3.fromRGB(50, 50, 50),
+			TabBackground = Color3.fromRGB(35, 35, 40),
+			TabStroke = Color3.fromRGB(45, 45, 50),
+			TabBackgroundSelected = Color3.fromRGB(220, 50, 50),
+			TabTextColor = Color3.fromRGB(220, 220, 220),
+			SelectedTabTextColor = Color3.fromRGB(255, 255, 255),
 
-			ElementBackground = Color3.fromRGB(35, 35, 35),
-			ElementBackgroundHover = Color3.fromRGB(40, 40, 40),
-			SecondaryElementBackground = Color3.fromRGB(25, 25, 25),
-			ElementStroke = Color3.fromRGB(50, 50, 50),
-			SecondaryElementStroke = Color3.fromRGB(40, 40, 40),
+			ElementBackground = Color3.fromRGB(28, 28, 32),
+			ElementBackgroundHover = Color3.fromRGB(40, 40, 45),
+			SecondaryElementBackground = Color3.fromRGB(22, 22, 26),
+			ElementStroke = Color3.fromRGB(55, 55, 60),
+			SecondaryElementStroke = Color3.fromRGB(45, 45, 50),
 
-			SliderBackground = Color3.fromRGB(50, 138, 220),
-			SliderProgress = Color3.fromRGB(50, 138, 220),
-			SliderStroke = Color3.fromRGB(58, 163, 255),
+			SliderBackground = Color3.fromRGB(50, 50, 55),
+			SliderProgress = Color3.fromRGB(220, 50, 50),
+			SliderStroke = Color3.fromRGB(235, 70, 70),
 
-			ToggleBackground = Color3.fromRGB(30, 30, 30),
-			ToggleEnabled = Color3.fromRGB(0, 146, 214),
-			ToggleDisabled = Color3.fromRGB(100, 100, 100),
-			ToggleEnabledStroke = Color3.fromRGB(0, 170, 255),
-			ToggleDisabledStroke = Color3.fromRGB(125, 125, 125),
-			ToggleEnabledOuterStroke = Color3.fromRGB(100, 100, 100),
-			ToggleDisabledOuterStroke = Color3.fromRGB(65, 65, 65),
+			ToggleBackground = Color3.fromRGB(30, 30, 35),
+			ToggleEnabled = Color3.fromRGB(220, 50, 50),
+			ToggleDisabled = Color3.fromRGB(100, 100, 110),
+			ToggleEnabledStroke = Color3.fromRGB(235, 70, 70),
+			ToggleDisabledStroke = Color3.fromRGB(120, 120, 130),
+			ToggleEnabledOuterStroke = Color3.fromRGB(200, 40, 40),
+			ToggleDisabledOuterStroke = Color3.fromRGB(70, 70, 80),
 
-			DropdownSelected = Color3.fromRGB(40, 40, 40),
-			DropdownUnselected = Color3.fromRGB(30, 30, 30),
+			DropdownSelected = Color3.fromRGB(45, 45, 50),
+			DropdownUnselected = Color3.fromRGB(30, 30, 35),
 
-			InputBackground = Color3.fromRGB(30, 30, 30),
-			InputStroke = Color3.fromRGB(65, 65, 65),
-			PlaceholderColor = Color3.fromRGB(178, 178, 178)
+			InputBackground = Color3.fromRGB(30, 30, 35),
+			InputStroke = Color3.fromRGB(65, 65, 70),
+			PlaceholderColor = Color3.fromRGB(180, 180, 190)
 		},
 
 		Ocean = {
