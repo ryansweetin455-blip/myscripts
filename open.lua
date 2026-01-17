@@ -1,17 +1,18 @@
 --[[
 
-	Ryderwinston Interface Suite
-	by Sirius
-
-	shlex  | Designing + Programming
-	iRay   | Programming
-	Max    | Programming
-	Damian | Programming
+	🎨 Ryderwinston UI Library
+	
+	A modern, feature-rich interface library for Roblox
+	Built with professional standards and smooth animations
+	
+	Created by: Ryderwinston Development Team
+	Version: 1.0.0
+	Release: January 2026
 
 ]]
 
 if debugX then
-	warn('Initialising Ryderwinston')
+	warn('🚀 Initializing Ryderwinston UI Library v1.0.0')
 end
 
 local function getService(name)
@@ -70,15 +71,15 @@ local function loadWithTimeout(url: string, timeout: number?): ...any
 end
 
 local requestsDisabled = true --getgenv and getgenv().DISABLE_Ryderwinston_REQUESTS
-local InterfaceBuild = '3K3W'
-local Release = "Build 1.68"
+local InterfaceBuild = 'RW_V1'
+local Release = "Ryderwinston UI v1.0.0 - January 2026"
 local RyderwinstonFolder = "Ryderwinston"
 local ConfigurationFolder = RyderwinstonFolder.."/Configurations"
-local ConfigurationExtension = "\.rwst"
+local ConfigurationExtension = ".rwst"
 local settingsTable = {
 	General = {
 		-- if needs be in order just make getSetting(name)
-		RyderwinstonOpen = {Type = 'bind', Value = 'K', Name = 'Ryderwinston Keybind'},
+		ryderwinstonOpen = {Type = 'bind', Value = 'K', Name = 'Ryderwinston Keybind'},
 		-- buildwarnings
 		-- Ryderwinstonprompts
 
@@ -762,7 +763,7 @@ Ryderwinston.DisplayOrder = 100
 LoadingFrame.Version.Text = Release
 
 -- Thanks to Latte Softworks for the Lucide integration for Roblox
-local Icons = useStudio and require(script.Parent.icons) or loadWithTimeout('https://raw.githubusercontent.com/SiriusSoftwareLtd/Ryderwinston/refs/heads/main/icons.lua')
+local Icons = useStudio and require(script.Parent.icons) or loadWithTimeout('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/icons.lua')
 -- Variables
 
 local CFileName = nil
@@ -1597,7 +1598,7 @@ function RyderwinstonLibrary:CreateWindow(Settings)
 	if not correctBuild and not Settings.DisableBuildWarnings then
 		task.delay(3, 
 			function() 
-				RyderwinstonLibrary:Notify({Title = 'Build Mismatch', Content = 'Ryderwinston may encounter issues as you are running an incompatible interface version ('.. ((Ryderwinston:FindFirstChild('Build') and Ryderwinston.Build.Value) or 'No Build') ..').\n\nThis version of Ryderwinston is intended for interface build '..InterfaceBuild..'.\n\nTry rejoining and then run the script twice.', Image = 4335487866, Duration = 15})		
+				RyderwinstonLibrary:Notify({Title = 'Version Warning', Content = 'Ryderwinston UI may have compatibility issues. Expected build: '..InterfaceBuild..'. Please ensure you are using the latest version.', Image = 4335487866, Duration = 15})		
 			end)
 	end
 
@@ -1641,10 +1642,10 @@ function RyderwinstonLibrary:CreateWindow(Settings)
 
 	LoadingFrame.Version.TextTransparency = 1
 	LoadingFrame.Title.Text = Settings.LoadingTitle or "Ryderwinston"
-	LoadingFrame.Subtitle.Text = Settings.LoadingSubtitle or "Interface Suite"
+	LoadingFrame.Subtitle.Text = Settings.LoadingSubtitle or "UI Library"
 
-	if Settings.LoadingTitle ~= "Ryderwinston Interface Suite" then
-		LoadingFrame.Version.Text = "Ryderwinston UI"
+	if Settings.LoadingTitle ~= "Ryderwinston UI Library" then
+		LoadingFrame.Version.Text = Release
 	end
 
 	if Settings.Icon and Settings.Icon ~= 0 and Topbar:FindFirstChild('Icon') then
@@ -1694,8 +1695,8 @@ function RyderwinstonLibrary:CreateWindow(Settings)
 			while true do
 				task.wait(math.random(180, 600))
 				RyderwinstonLibrary:Notify({
-					Title = "Ryderwinston Interface",
-					Content = "Enjoying this UI library? Find it at sirius.menu/discord",
+					Title = "Ryderwinston UI",
+					Content = "Thank you for using Ryderwinston UI Library!",
 					Duration = 7,
 					Image = 4370033185,
 				})
