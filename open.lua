@@ -3,6 +3,7 @@
     - Sin dependencias externas
     - Tema rojo profesional
     - Tabs, botones, toggles y sliders simples
+    -v1.0
 ]]
 
 local Players = game:GetService("Players")
@@ -11,15 +12,13 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local Theme = {
-    Text = Color3.fromRGB(245, 245, 245),
     Background = Color3.fromRGB(18, 18, 20),
     Topbar = Color3.fromRGB(24, 24, 28),
+    Sidebar = Color3.fromRGB(26, 26, 30),
+    Section = Color3.fromRGB(28, 28, 32),
     Stroke = Color3.fromRGB(55, 55, 60),
+    Text = Color3.fromRGB(245, 245, 245),
     Accent = Color3.fromRGB(220, 50, 50),
-    Accent2 = Color3.fromRGB(235, 70, 70),
-    Element = Color3.fromRGB(28, 28, 32),
-    ElementHover = Color3.fromRGB(38, 38, 42),
-    Input = Color3.fromRGB(30, 30, 35),
 }
 
 local function roundify(obj, r)
@@ -36,6 +35,24 @@ local function stroke(obj, color, thickness, transparency)
     s.Transparency = transparency or 0
     s.Parent = obj
     return s
+end
+
+local function TweenHover(btn, fromColor, toColor)
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = toColor}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = fromColor}):Play()
+    end)
+end
+
+local function TweenClick(btn, downColor, upColor)
+    btn.MouseButton1Click:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = downColor}):Play()
+        task.delay(0.12, function()
+            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = upColor}):Play()
+        end)
+    end)
 end
 
 local function makeDraggable(frame, handle)
@@ -89,6 +106,20 @@ function Library:CreateWindow(opts)
     roundify(main, 10)
     stroke(main, Theme.Stroke, 1)
 
+    -- Shadow behind main
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxasset://textures/ui/RoundedRectShadow.png"
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(20, 20, 280, 280)
+    shadow.Size = UDim2.new(1, 24, 1, 24)
+    shadow.Position = UDim2.new(0, -12, 0, -12)
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ZIndex = 0
+    shadow.Parent = main
+
     -- Scale animation for opening/closing
     local uiScale = Instance.new("UIScale")
     uiScale.Parent = main
@@ -134,15 +165,14 @@ function Library:CreateWindow(opts)
         TweenService:Create(close, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Accent}):Play()
     end)
 
-    local tabBar = Instance.new("Frame")
-    tabBar.Name = "TabBar"
-    tabBar.Size = UDim2.new(0, 130, 1, -44)
-    tabBar.Position = UDim2.new(0, 8, 0, 44)
-    tabBar.BackgroundTransparency = 0.2
-    tabBar.BackgroundColor3 = Theme.Element
-    tabBar.Parent = main
-    roundify(tabBar, 8)
-    stroke(tabBar, Theme.Stroke, 1, 0.2)
+    local sidebar = Instance.new("Frame")
+    sidebar.Name = "Sidebar"
+    sidebar.Size = UDim2.new(0, 130, 1, -44)
+    sidebar.Position = UDim2.new(0, 8, 0, 44)
+    sidebar.BackgroundColor3 = Theme.Sidebar
+    sidebar.Parent = main
+    roundify(sidebar, 8)
+    stroke(sidebar, Theme.Stroke, 1, 0.2)
 
     local tabList = Instance.new("UIListLayout")
     tabList.Padding = UDim.new(0, 6)
@@ -150,14 +180,15 @@ function Library:CreateWindow(opts)
     tabList.HorizontalAlignment = Enum.HorizontalAlignment.Center
     tabList.VerticalAlignment = Enum.VerticalAlignment.Begin
     tabList.SortOrder = Enum.SortOrder.LayoutOrder
-    tabList.Parent = tabBar
+    tabList.Parent = sidebar
 
-    local pages = Instance.new("Frame")
-    pages.Name = "Pages"
-    pages.Size = UDim2.new(1, -150, 1, -52)
-    pages.Position = UDim2.new(0, 146, 0, 44)
-    pages.BackgroundTransparency = 1
-    pages.Parent = main
+    local content = Instance.new("Frame")
+    content.Name = "Content"
+    content.Size = UDim2.new(1, -150, 1, -52)
+    content.Position = UDim2.new(0, 146, 0, 44)
+    content.BackgroundTransparency = 1
+    content.Parent = main
+    roundify(content, 8)
 
     local currentPage
 
@@ -200,6 +231,8 @@ function Library:CreateWindow(opts)
     close.MouseButton1Click:Connect(function()
         Window:Close()
     end)
+    TweenHover(close, Theme.Accent, Theme.Accent)
+    TweenClick(close, Theme.Accent, Theme.Accent)
 
     launcher.MouseEnter:Connect(function()
         TweenService:Create(launcher, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Accent2}):Play()
@@ -212,22 +245,33 @@ function Library:CreateWindow(opts)
     end)
 
     function Window:CreateTab(tabName)
+        -- TabButton in Sidebar
         local btn = Instance.new("TextButton")
-        btn.Name = tabName
+        btn.Name = "TabButton"
         btn.Size = UDim2.new(1, -12, 0, 32)
-        btn.BackgroundColor3 = Theme.Element
+        btn.BackgroundColor3 = Theme.Sidebar
         btn.TextColor3 = Theme.Text
         btn.Font = Enum.Font.GothamSemibold
         btn.TextSize = 14
         btn.Text = tabName
         btn.AutoButtonColor = false
-        btn.Parent = tabBar
+        btn.Parent = sidebar
         roundify(btn, 6)
         stroke(btn, Theme.Stroke, 1, 0.3)
+        TweenHover(btn, Theme.Sidebar, Theme.Section)
 
+        -- TabPage Frame inside Content
+        local tabPage = Instance.new("Frame")
+        tabPage.Name = "TabPage"
+        tabPage.Visible = false
+        tabPage.BackgroundTransparency = 1
+        tabPage.BorderSizePixel = 0
+        tabPage.Size = UDim2.new(1, 0, 1, 0)
+        tabPage.Parent = content
+
+        -- Scrolling container inside TabPage
         local page = Instance.new("ScrollingFrame")
-        page.Name = tabName .. "Page"
-        page.Visible = false
+        page.Name = "Scroll"
         page.Active = true
         page.BackgroundTransparency = 1
         page.BorderSizePixel = 0
@@ -235,7 +279,7 @@ function Library:CreateWindow(opts)
         page.CanvasSize = UDim2.new(0, 0, 0, 0)
         page.ScrollBarThickness = 6
         page.ScrollBarImageColor3 = Theme.Stroke
-        page.Parent = pages
+        page.Parent = tabPage
 
         local layout = Instance.new("UIListLayout")
         layout.Padding = UDim.new(0, 8)
@@ -249,28 +293,29 @@ function Library:CreateWindow(opts)
         padding.PaddingTop = UDim.new(0, 6)
         padding.Parent = page
 
+        -- Auto CanvasSize
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+        end)
+
         local selected = false
 
         local function setSelected(val)
             selected = val
-            local targetColor = selected and Theme.Accent or Theme.Element
+            local targetColor = selected and Theme.Accent or Theme.Sidebar
             TweenService:Create(btn, TweenInfo.new(0.18), {BackgroundColor3 = targetColor}):Play()
         end
 
         local function select()
             if currentPage then
-                currentPage.page.Visible = false
-                TweenService:Create(currentPage.button, TweenInfo.new(0.18), {BackgroundColor3 = Theme.Element}):Play()
-                if currentPage.page then
-                    currentPage.page.Position = UDim2.new(0, 0, 0, 0)
-                end
+                currentPage.container.Visible = false
+                TweenService:Create(currentPage.button, TweenInfo.new(0.18), {BackgroundColor3 = Theme.Sidebar}):Play()
             end
-            currentPage = {page = page, button = btn}
-            page.Visible = true
+            currentPage = {container = tabPage, button = btn}
+            tabPage.Visible = true
             page.Position = UDim2.new(0, 16, 0, 6)
             TweenService:Create(page, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
             setSelected(true)
-            page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
         end
 
         btn.MouseButton1Click:Connect(select)
@@ -288,36 +333,69 @@ function Library:CreateWindow(opts)
 
         local Tab = {}
 
-        local function makeCard(height)
-            local f = Instance.new("Frame")
-            f.BackgroundColor3 = Theme.Element
-            f.Size = UDim2.new(1, -4, 0, height)
-            f.Parent = page
-            roundify(f, 8)
-            stroke(f, Theme.Stroke, 1, 0.2)
-            return f
+        local currentContainer
+
+        local function makeSection()
+            local section = Instance.new("Frame")
+            section.Name = "Section"
+            section.BackgroundColor3 = Theme.Section
+            section.Size = UDim2.new(1, -4, 0, 0)
+            section.AutomaticSize = Enum.AutomaticSize.Y
+            section.Parent = page
+            roundify(section, 8)
+            stroke(section, Theme.Stroke, 1, 0.2)
+
+            local title = Instance.new("TextLabel")
+            title.Name = "Title"
+            title.BackgroundTransparency = 1
+            title.Size = UDim2.new(1, -20, 0, 32)
+            title.Position = UDim2.new(0, 10, 0, 0)
+            title.Font = Enum.Font.GothamBold
+            title.TextColor3 = Theme.Text
+            title.TextSize = 16
+            title.TextXAlignment = Enum.TextXAlignment.Left
+            title.Parent = section
+
+            local container = Instance.new("Frame")
+            container.Name = "Container"
+            container.BackgroundTransparency = 1
+            container.Size = UDim2.new(1, -20, 0, 0)
+            container.AutomaticSize = Enum.AutomaticSize.Y
+            container.Position = UDim2.new(0, 10, 0, 32)
+            container.Parent = section
+
+            local clayout = Instance.new("UIListLayout")
+            clayout.Padding = UDim.new(0, 8)
+            clayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            clayout.SortOrder = Enum.SortOrder.LayoutOrder
+            clayout.Parent = container
+
+            local cpad = Instance.new("UIPadding")
+            cpad.PaddingLeft = UDim.new(0, 0)
+            cpad.PaddingRight = UDim.new(0, 0)
+            cpad.PaddingTop = UDim.new(0, 4)
+            cpad.PaddingBottom = UDim.new(0, 8)
+            cpad.Parent = container
+
+            currentContainer = container
+            return section, title, container
         end
 
         function Tab:CreateSection(titleText)
-            local card = makeCard(34)
-            local lbl = Instance.new("TextLabel")
-            lbl.BackgroundTransparency = 1
-            lbl.Size = UDim2.new(1, -20, 1, 0)
-            lbl.Position = UDim2.new(0, 10, 0, 0)
-            lbl.Font = Enum.Font.GothamBold
-            lbl.Text = titleText
-            lbl.TextColor3 = Theme.Text
-            lbl.TextSize = 16
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Parent = card
-            return lbl
+            local section, titleLabel, container = makeSection()
+            titleLabel.Text = titleText
+            return {
+                Section = section,
+                Title = titleLabel,
+                Container = container
+            }
         end
 
         function Tab:CreateLabel(text)
-            local card = makeCard(44)
+            if not currentContainer then makeSection() end
             local lbl = Instance.new("TextLabel")
             lbl.BackgroundTransparency = 1
-            lbl.Size = UDim2.new(1, -20, 1, 0)
+            lbl.Size = UDim2.new(1, -20, 0, 44)
             lbl.Position = UDim2.new(0, 10, 0, 0)
             lbl.Font = Enum.Font.Gotham
             lbl.TextWrapped = true
@@ -326,7 +404,7 @@ function Library:CreateWindow(opts)
             lbl.TextSize = 14
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             lbl.TextYAlignment = Enum.TextYAlignment.Center
-            lbl.Parent = card
+            lbl.Parent = currentContainer
             return lbl
         end
 
@@ -334,26 +412,22 @@ function Library:CreateWindow(opts)
             params = params or {}
             local text = params.Name or "Button"
             local callback = params.Callback or function() end
-            local card = makeCard(44)
-
+            if not currentContainer then makeSection() end
             local btn = Instance.new("TextButton")
-            btn.Name = "Button"
-            btn.Size = UDim2.new(1, -16, 1, -12)
-            btn.Position = UDim2.new(0, 8, 0, 6)
+            btn.Name = "TextButton"
+            btn.Size = UDim2.new(1, -20, 0, 40)
+            btn.Position = UDim2.new(0, 10, 0, 0)
             btn.BackgroundColor3 = Theme.Accent
             btn.Text = text
             btn.TextColor3 = Theme.Text
             btn.TextSize = 14
             btn.Font = Enum.Font.GothamBold
             btn.AutoButtonColor = false
-            btn.Parent = card
+            btn.Parent = currentContainer
             roundify(btn, 6)
-
+            stroke(btn, Theme.Stroke, 1, 0.15)
+            TweenClick(btn, Theme.Accent, Theme.Accent)
             btn.MouseButton1Click:Connect(function()
-                TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Accent2}):Play()
-                task.delay(0.15, function()
-                    TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Accent}):Play()
-                end)
                 callback()
             end)
 
@@ -372,47 +446,53 @@ function Library:CreateWindow(opts)
             local text = params.Name or "Toggle"
             local state = params.CurrentValue or false
             local callback = params.Callback or function() end
-
-            local card = makeCard(46)
+            if not currentContainer then makeSection() end
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1, -20, 0, 44)
+            row.Position = UDim2.new(0, 10, 0, 0)
+            row.BackgroundTransparency = 1
+            row.Parent = currentContainer
 
             local lbl = Instance.new("TextLabel")
             lbl.BackgroundTransparency = 1
             lbl.Size = UDim2.new(1, -70, 1, 0)
-            lbl.Position = UDim2.new(0, 10, 0, 0)
+            lbl.Position = UDim2.new(0, 0, 0, 0)
             lbl.Font = Enum.Font.Gotham
             lbl.Text = text
             lbl.TextColor3 = Theme.Text
             lbl.TextSize = 14
             lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Parent = card
+            lbl.Parent = row
 
-            local switch = Instance.new("TextButton")
-            switch.Size = UDim2.new(0, 54, 0, 22)
-            switch.Position = UDim2.new(1, -64, 0.5, -11)
-            switch.BackgroundColor3 = Theme.ElementHover
-            switch.Text = ""
-            switch.AutoButtonColor = false
-            switch.Parent = card
-            roundify(switch, 11)
-            stroke(switch, Theme.Stroke, 1, 0.25)
+            local toggleBtn = Instance.new("TextButton")
+            toggleBtn.Name = "ToggleButton"
+            toggleBtn.Size = UDim2.new(0, 54, 0, 22)
+            toggleBtn.Position = UDim2.new(1, -64, 0.5, -11)
+            toggleBtn.BackgroundColor3 = Theme.Section
+            toggleBtn.Text = ""
+            toggleBtn.AutoButtonColor = false
+            toggleBtn.Parent = row
+            roundify(toggleBtn, 11)
+            stroke(toggleBtn, Theme.Stroke, 1, 0.25)
 
-            local knob = Instance.new("Frame")
-            knob.Size = UDim2.new(0, 18, 0, 18)
-            knob.Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
-            knob.BackgroundColor3 = state and Theme.Accent or Theme.Stroke
-            knob.Parent = switch
-            roundify(knob, 9)
+            local circle = Instance.new("Frame")
+            circle.Name = "Circle"
+            circle.Size = UDim2.new(0, 18, 0, 18)
+            circle.Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+            circle.BackgroundColor3 = state and Theme.Accent or Theme.Stroke
+            circle.Parent = toggleBtn
+            roundify(circle, 9)
 
             local function set(val)
                 state = val
-                TweenService:Create(knob, TweenInfo.new(0.15), {
+                TweenService:Create(circle, TweenInfo.new(0.15), {
                     Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9),
                     BackgroundColor3 = state and Theme.Accent or Theme.Stroke
                 }):Play()
                 callback(state)
             end
 
-            switch.MouseButton1Click:Connect(function()
+            toggleBtn.MouseButton1Click:Connect(function()
                 set(not state)
             end)
 
@@ -430,8 +510,12 @@ function Library:CreateWindow(opts)
             local value = params.CurrentValue or min
             local inc = params.Increment or 1
             local callback = params.Callback or function() end
-
-            local card = makeCard(60)
+            if not currentContainer then makeSection() end
+            local containerRow = Instance.new("Frame")
+            containerRow.BackgroundTransparency = 1
+            containerRow.Size = UDim2.new(1, -20, 0, 60)
+            containerRow.Position = UDim2.new(0, 10, 0, 0)
+            containerRow.Parent = currentContainer
 
             local lbl = Instance.new("TextLabel")
             lbl.BackgroundTransparency = 1
@@ -442,7 +526,7 @@ function Library:CreateWindow(opts)
             lbl.TextColor3 = Theme.Text
             lbl.TextSize = 14
             lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Parent = card
+            lbl.Parent = containerRow
 
             local valLbl = Instance.new("TextLabel")
             valLbl.BackgroundTransparency = 1
@@ -453,13 +537,13 @@ function Library:CreateWindow(opts)
             valLbl.TextColor3 = Theme.Text
             valLbl.TextSize = 13
             valLbl.TextXAlignment = Enum.TextXAlignment.Right
-            valLbl.Parent = card
+            valLbl.Parent = containerRow
 
             local bar = Instance.new("Frame")
             bar.Size = UDim2.new(1, -20, 0, 10)
             bar.Position = UDim2.new(0, 10, 0, 38)
-            bar.BackgroundColor3 = Theme.ElementHover
-            bar.Parent = card
+            bar.BackgroundColor3 = Theme.Section
+            bar.Parent = containerRow
             roundify(bar, 6)
             stroke(bar, Theme.Stroke, 1, 0.25)
 
@@ -509,8 +593,39 @@ function Library:CreateWindow(opts)
             }
         end
 
+        local Tab = {}
+        Tab.Select = select
+        Tab.CreateSection = Tab.CreateSection
+        Tab.CreateLabel = Tab.CreateLabel
+        Tab.CreateButton = Tab.CreateButton
+        Tab.CreateToggle = Tab.CreateToggle
+        Tab.CreateSlider = Tab.CreateSlider
         return Tab
     end
+
+    function Window:SelectTab(name)
+        -- Find and click by text
+        for _, child in ipairs(sidebar:GetChildren()) do
+            if child:IsA("TextButton") and child.Text == name then
+                child:Activate()
+                child:Release()
+                child.MouseButton1Click:Fire()
+                break
+            end
+        end
+    end
+
+    -- Keybind to toggle UI (RightShift)
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            if main.Visible then
+                Window:Close()
+            else
+                Window:Open()
+            end
+        end
+    end)
 
     return Window
 end
