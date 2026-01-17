@@ -39,23 +39,29 @@ local function stroke(obj, color, thickness, transparency)
 end
 
 local function makeDraggable(frame, handle)
-    local drag = false
-    local offset
+    local dragging = false
+    local dragInput
+    local startPos
+    local startInputPos
+
     handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            drag = true
-            offset = frame.AbsolutePosition - UserInputService:GetMouseLocation()
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragInput = input
+            startInputPos = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
-    handle.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            drag = false
-        end
-    end)
+
     UserInputService.InputChanged:Connect(function(input)
-        if drag and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local pos = UserInputService:GetMouseLocation() + offset
-            frame.Position = UDim2.fromOffset(pos.X, pos.Y)
+        if dragging and (input == dragInput or input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - startInputPos
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 end
@@ -82,6 +88,12 @@ function Library:CreateWindow(opts)
     main.Parent = gui
     roundify(main, 10)
     stroke(main, Theme.Stroke, 1)
+
+    -- Scale animation for opening/closing
+    local uiScale = Instance.new("UIScale")
+    uiScale.Parent = main
+    uiScale.Scale = 0.94
+    TweenService:Create(uiScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
 
     local topbar = Instance.new("Frame")
     topbar.Name = "Topbar"
@@ -114,6 +126,14 @@ function Library:CreateWindow(opts)
     close.Parent = topbar
     roundify(close, 6)
 
+    -- Close hover animation
+    close.MouseEnter:Connect(function()
+        TweenService:Create(close, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Accent2}):Play()
+    end)
+    close.MouseLeave:Connect(function()
+        TweenService:Create(close, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Accent}):Play()
+    end)
+
     local tabBar = Instance.new("Frame")
     tabBar.Name = "TabBar"
     tabBar.Size = UDim2.new(0, 130, 1, -44)
@@ -141,13 +161,55 @@ function Library:CreateWindow(opts)
 
     local currentPage
 
+    -- Launcher button (shown when window closes)
+    local launcher = Instance.new("TextButton")
+    launcher.Name = "Launcher"
+    launcher.Size = UDim2.new(0, 40, 0, 40)
+    launcher.Position = UDim2.new(0, 16, 1, -56)
+    launcher.AnchorPoint = Vector2.new(0, 1)
+    launcher.BackgroundColor3 = Theme.Accent
+    launcher.Text = "≡"
+    launcher.TextColor3 = Theme.Text
+    launcher.Font = Enum.Font.GothamBold
+    launcher.TextSize = 20
+    launcher.AutoButtonColor = false
+    launcher.Visible = false
+    launcher.Parent = gui
+    roundify(launcher, 20)
+    stroke(launcher, Theme.Stroke, 1, 0.2)
+
     makeDraggable(main, topbar)
 
+    local Window = {}
+
+    function Window:Open()
+        main.Visible = true
+        launcher.Visible = false
+        uiScale.Scale = 0.94
+        TweenService:Create(uiScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    end
+
+    function Window:Close()
+        TweenService:Create(uiScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.94}):Play()
+        task.delay(0.16, function()
+            main.Visible = false
+            launcher.Visible = true
+        end)
+    end
+
     close.MouseButton1Click:Connect(function()
-        gui:Destroy()
+        Window:Close()
     end)
 
-    local Window = {}
+    launcher.MouseEnter:Connect(function()
+        TweenService:Create(launcher, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Accent2}):Play()
+    end)
+    launcher.MouseLeave:Connect(function()
+        TweenService:Create(launcher, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Accent}):Play()
+    end)
+    launcher.MouseButton1Click:Connect(function()
+        Window:Open()
+    end)
 
     function Window:CreateTab(tabName)
         local btn = Instance.new("TextButton")
@@ -187,18 +249,41 @@ function Library:CreateWindow(opts)
         padding.PaddingTop = UDim.new(0, 6)
         padding.Parent = page
 
+        local selected = false
+
+        local function setSelected(val)
+            selected = val
+            local targetColor = selected and Theme.Accent or Theme.Element
+            TweenService:Create(btn, TweenInfo.new(0.18), {BackgroundColor3 = targetColor}):Play()
+        end
+
         local function select()
             if currentPage then
                 currentPage.page.Visible = false
-                TweenService:Create(currentPage.button, TweenInfo.new(0.2), {BackgroundColor3 = Theme.Element}):Play()
+                TweenService:Create(currentPage.button, TweenInfo.new(0.18), {BackgroundColor3 = Theme.Element}):Play()
+                if currentPage.page then
+                    currentPage.page.Position = UDim2.new(0, 0, 0, 0)
+                end
             end
             currentPage = {page = page, button = btn}
             page.Visible = true
-            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.Accent}):Play()
+            page.Position = UDim2.new(0, 16, 0, 6)
+            TweenService:Create(page, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+            setSelected(true)
             page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
         end
 
         btn.MouseButton1Click:Connect(select)
+        btn.MouseEnter:Connect(function()
+            if not selected then
+                TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = Theme.ElementHover}):Play()
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            if not selected then
+                TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = Theme.Element}):Play()
+            end
+        end)
         if not currentPage then select() end
 
         local Tab = {}
@@ -402,19 +487,19 @@ function Library:CreateWindow(opts)
             end
 
             bar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragging = true
-                    updateFromInput(UserInputService:GetMouseLocation().X)
-                end
-            end)
-            bar.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
+                    updateFromInput(input.Position.X)
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragging = false
+                        end
+                    end)
                 end
             end)
             UserInputService.InputChanged:Connect(function(input)
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    updateFromInput(UserInputService:GetMouseLocation().X)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    updateFromInput(input.Position.X)
                 end
             end)
 
