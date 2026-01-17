@@ -9,13 +9,14 @@
     - Keybinds por elemento con persistencia
     - Efectos visuales: sombras suaves, glow dinámico, bordes animados
     - Animaciones refinadas: hover, click, scroll, tab switch, ventana
-    - v3.0
+    - v4.0
 ]]
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ============================================================================
@@ -205,13 +206,16 @@ function Util.TweenClick(btn, downColor, upColor, callback)
     end)
 end
 
-function Util.ClampToScreen(frame, screenSize)
-    screenSize = screenSize or frame.Parent.AbsoluteSize
-    local pos = frame.AbsolutePosition
-    local size = frame.AbsoluteSize
-    local newX = math.max(0, math.min(pos.X, screenSize.X - size.X))
-    local newY = math.max(0, math.min(pos.Y, screenSize.Y - size.Y))
-    return UDim2.fromOffset(newX, newY)
+function Util.ClampToScreen(position, size, screenSize)
+    -- Clamp a pixel position against screen bounds, defaulting to camera viewport
+    local viewport = screenSize
+    if not viewport then
+        local cam = workspace.CurrentCamera or workspace:FindFirstChildOfClass("Camera")
+        viewport = (cam and cam.ViewportSize) or Vector2.new(1920, 1080)
+    end
+    local newX = math.max(0, math.min(position.X, viewport.X - size.X))
+    local newY = math.max(0, math.min(position.Y, viewport.Y - size.Y))
+    return Vector2.new(newX, newY)
 end
 
 function Util.Glow(obj, color, thickness)
@@ -228,15 +232,36 @@ end
 -- ============================================================================
 local Keybinds = {}
 Keybinds.Binds = {}
+Keybinds.Connected = false
+Keybinds.Connection = nil
 
 function Keybinds:Bind(keyCode, callback, label)
     label = label or tostring(keyCode)
+    for _, b in ipairs(self.Binds) do
+        if b.key == keyCode and b.label == label then
+            b.callback = callback
+            return
+        end
+    end
     table.insert(self.Binds, {key = keyCode, callback = callback, label = label})
     Config:Set("keybind_" .. label, keyCode)
 end
 
+function Keybinds:BindInternal(keyCode, callback, label)
+    label = label or tostring(keyCode)
+    for _, b in ipairs(self.Binds) do
+        if b.key == keyCode and b.label == label then
+            b.callback = callback
+            return
+        end
+    end
+    table.insert(self.Binds, {key = keyCode, callback = callback, label = label, internal = true})
+end
+
 function Keybinds:SetupListener()
-    UserInputService.InputBegan:Connect(function(input, gp)
+    if self.Connected then return end
+    self.Connected = true
+    self.Connection = UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         for _, bind in ipairs(self.Binds) do
             if input.KeyCode == bind.key then
@@ -262,6 +287,19 @@ local Notifications = {}
 Notifications.Queue = {}
 Notifications.Active = {}
 Notifications.MaxActive = 3
+Notifications.Gui = nil
+
+function Notifications:EnsureGui()
+    if self.Gui and self.Gui.Parent then return self.Gui end
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "NotificationGUI"
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder = 15
+    gui.ResetOnSpawn = false
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    self.Gui = gui
+    return gui
+end
 
 function Notifications:GetColorForType(notifType, theme)
     notifType = notifType or "info"
@@ -283,10 +321,13 @@ function Notifications:Show(opts)
     local position = opts.Position or UDim2.new(0, 16, 1, -100)
     local theme = Config:GetTheme()
 
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "NotificationGUI"
-    gui.IgnoreGuiInset = true
-    gui.Parent = gethui and gethui() or LocalPlayer:WaitForChild("PlayerGui")
+    local gui = self:EnsureGui()
+
+    -- Respect max active
+    if #self.Active >= self.MaxActive then
+        local oldest = table.remove(self.Active, 1)
+        if oldest and oldest.Parent then oldest:Destroy() end
+    end
 
     local notif = Instance.new("Frame")
     notif.Name = "Notification"
@@ -350,14 +391,14 @@ function Notifications:Show(opts)
                 BackgroundTransparency = 1
             }):Play()
             task.delay(0.4, function()
-                if gui and gui.Parent then
-                    gui:Destroy()
+                if notif and notif.Parent then
+                    notif:Destroy()
                 end
             end)
         end
     end)
 
-    table.insert(self.Active, gui)
+    table.insert(self.Active, notif)
 end
 
 -- ============================================================================
@@ -381,6 +422,8 @@ function Elements.CreateButton(parent, params, theme)
     btn.TextSize = 14
     btn.Font = Enum.Font.GothamBold
     btn.AutoButtonColor = false
+    btn.Active = true
+    btn.ZIndex = 3
     btn.Parent = parent
     Util.Roundify(btn, 6)
     Util.Stroke(btn, theme.Stroke, 1, 0.15)
@@ -399,6 +442,7 @@ function Elements.CreateToggle(parent, params, theme)
     local callback = params.Callback or function() end
 
     local row = Instance.new("Frame")
+    row.Name = "ToggleRow"
     row.Size = UDim2.new(1, -20, 0, 44)
     row.BackgroundTransparency = 1
     row.Parent = parent
@@ -412,6 +456,7 @@ function Elements.CreateToggle(parent, params, theme)
     lbl.TextSize = 14
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = row
+    lbl.ZIndex = 3
 
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = "ToggleButton"
@@ -420,7 +465,9 @@ function Elements.CreateToggle(parent, params, theme)
     toggleBtn.BackgroundColor3 = theme.Section
     toggleBtn.Text = ""
     toggleBtn.AutoButtonColor = false
+    toggleBtn.Active = true
     toggleBtn.Parent = row
+    toggleBtn.ZIndex = 3
     Util.Roundify(toggleBtn, 11)
     Util.Stroke(toggleBtn, theme.Stroke, 1, 0.25)
 
@@ -430,6 +477,7 @@ function Elements.CreateToggle(parent, params, theme)
     circle.Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
     circle.BackgroundColor3 = state and theme.Accent or theme.Stroke
     circle.Parent = toggleBtn
+    circle.ZIndex = 4
     Util.Roundify(circle, 9)
 
     local function set(val)
@@ -464,6 +512,7 @@ function Elements.CreateSlider(parent, params, theme)
     local callback = params.Callback or function() end
 
     local row = Instance.new("Frame")
+    row.Name = "SliderRow"
     row.BackgroundTransparency = 1
     row.Size = UDim2.new(1, -20, 0, 60)
     row.Parent = parent
@@ -478,8 +527,10 @@ function Elements.CreateSlider(parent, params, theme)
     lbl.TextSize = 14
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = row
+    lbl.ZIndex = 3
 
     local valLbl = Instance.new("TextLabel")
+    valLbl.Name = "SliderValue"
     valLbl.BackgroundTransparency = 1
     valLbl.Size = UDim2.new(0, 80, 0, 18)
     valLbl.Position = UDim2.new(1, -90, 0, 6)
@@ -489,19 +540,24 @@ function Elements.CreateSlider(parent, params, theme)
     valLbl.TextSize = 13
     valLbl.TextXAlignment = Enum.TextXAlignment.Right
     valLbl.Parent = row
+    valLbl.ZIndex = 3
 
     local bar = Instance.new("Frame")
+    bar.Name = "SliderBar"
     bar.Size = UDim2.new(1, -20, 0, 10)
     bar.Position = UDim2.new(0, 10, 0, 38)
     bar.BackgroundColor3 = theme.Section
     bar.Parent = row
+    bar.ZIndex = 2
     Util.Roundify(bar, 6)
     Util.Stroke(bar, theme.Stroke, 1, 0.25)
 
     local fill = Instance.new("Frame")
+    fill.Name = "SliderFill"
     fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
     fill.BackgroundColor3 = theme.Accent
     fill.Parent = bar
+    fill.ZIndex = 3
     Util.Roundify(fill, 6)
 
     local dragging = false
@@ -555,6 +611,7 @@ function Elements.CreateTextBox(parent, params, theme)
     local callback = params.Callback or function() end
 
     local row = Instance.new("Frame")
+    row.Name = "TextBoxRow"
     row.Size = UDim2.new(1, -20, 0, 50)
     row.BackgroundTransparency = 1
     row.Parent = parent
@@ -568,6 +625,7 @@ function Elements.CreateTextBox(parent, params, theme)
     lbl.TextSize = 14
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = row
+    lbl.ZIndex = 3
 
     local textbox = Instance.new("TextBox")
     textbox.Name = "TextBox"
@@ -580,7 +638,9 @@ function Elements.CreateTextBox(parent, params, theme)
     textbox.Font = Enum.Font.Gotham
     textbox.TextSize = 13
     textbox.ClearTextOnFocus = false
+    textbox.Active = true
     textbox.Parent = row
+    textbox.ZIndex = 3
     Util.Roundify(textbox, 6)
     Util.Stroke(textbox, theme.Stroke, 1, 0.2)
 
@@ -619,6 +679,7 @@ function TabModule:New(tabName, parent, sidebar, layout, theme)
     btn.TextSize = 14
     btn.Text = tabName
     btn.AutoButtonColor = false
+    btn.ZIndex = 3
     btn.Parent = sidebar
     Util.Roundify(btn, 6)
     Util.Stroke(btn, tab.Theme.Stroke, 1, 0.3)
@@ -630,6 +691,7 @@ function TabModule:New(tabName, parent, sidebar, layout, theme)
     tabPage.BackgroundTransparency = 1
     tabPage.BorderSizePixel = 0
     tabPage.Size = UDim2.new(1, 0, 1, 0)
+    tabPage.ZIndex = 2
     tabPage.Parent = parent
 
     local scrollFrame = Instance.new("ScrollingFrame")
@@ -641,6 +703,7 @@ function TabModule:New(tabName, parent, sidebar, layout, theme)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.ScrollBarThickness = 6
     scrollFrame.ScrollBarImageColor3 = tab.Theme.Stroke
+    scrollFrame.ZIndex = 2
     scrollFrame.Parent = tabPage
 
     local scrollLayout = Instance.new("UIListLayout")
@@ -665,12 +728,20 @@ function TabModule:New(tabName, parent, sidebar, layout, theme)
     tab.Scroll = scrollFrame
     tab.ScrollLayout = scrollLayout
 
+    function tab:EnsureSection(title)
+        if not tab.CurrentContainer then
+            return tab:CreateSection(title or "General")
+        end
+        return { Section = tab.CurrentContainer.Parent, Container = tab.CurrentContainer }
+    end
+
     function tab:CreateSection(titleText)
         local section = Instance.new("Frame")
         section.Name = "Section"
         section.BackgroundColor3 = tab.Theme.Section
         section.Size = UDim2.new(1, -4, 0, 0)
         section.AutomaticSize = Enum.AutomaticSize.Y
+        section.ZIndex = 2
         section.Parent = scrollFrame
         Util.Roundify(section, 8)
         Util.Stroke(section, tab.Theme.Stroke, 1, 0.2)
@@ -713,35 +784,43 @@ function TabModule:New(tabName, parent, sidebar, layout, theme)
     end
 
     function tab:CreateButton(params)
-        if not tab.CurrentContainer then tab:CreateSection("Default") end
+        tab.Page.Visible = true
+        tab:EnsureSection()
+        RunService.RenderStepped:Wait()
         local btn = Elements.CreateButton(tab.CurrentContainer, params, tab.Theme)
         table.insert(tab.Elements, btn)
         return btn
     end
 
     function tab:CreateToggle(params)
-        if not tab.CurrentContainer then tab:CreateSection("Default") end
+        tab.Page.Visible = true
+        tab:EnsureSection()
+        RunService.RenderStepped:Wait()
         local toggle = Elements.CreateToggle(tab.CurrentContainer, params, tab.Theme)
         table.insert(tab.Elements, toggle)
         return toggle
     end
 
     function tab:CreateSlider(params)
-        if not tab.CurrentContainer then tab:CreateSection("Default") end
+        tab.Page.Visible = true
+        tab:EnsureSection()
+        RunService.RenderStepped:Wait()
         local slider = Elements.CreateSlider(tab.CurrentContainer, params, tab.Theme)
         table.insert(tab.Elements, slider)
         return slider
     end
 
     function tab:CreateTextBox(params)
-        if not tab.CurrentContainer then tab:CreateSection("Default") end
+        tab.Page.Visible = true
+        tab:EnsureSection()
+        RunService.RenderStepped:Wait()
         local textbox = Elements.CreateTextBox(tab.CurrentContainer, params, tab.Theme)
         table.insert(tab.Elements, textbox)
         return textbox
     end
 
     function tab:CreateLabel(text)
-        if not tab.CurrentContainer then tab:CreateSection("Default") end
+        tab:EnsureSection()
         local lbl = Instance.new("TextLabel")
         lbl.BackgroundTransparency = 1
         lbl.Size = UDim2.new(1, -20, 0, 44)
@@ -755,6 +834,9 @@ function TabModule:New(tabName, parent, sidebar, layout, theme)
         lbl.Parent = tab.CurrentContainer
         return lbl
     end
+
+    -- Always start with a default section to avoid empty containers
+    tab:EnsureSection(tabName .. " Section")
 
     return tab
 end
@@ -776,7 +858,8 @@ function WindowModule:New(opts, theme)
     gui.Name = "miexecutadorUI"
     gui.IgnoreGuiInset = true
     gui.ResetOnSpawn = false
-    gui.Parent = gethui and gethui() or LocalPlayer:WaitForChild("PlayerGui")
+    gui.DisplayOrder = 10
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui") -- parent directly to PlayerGui for reliable input
 
     local main = Instance.new("Frame")
     main.Name = "Main"
@@ -784,6 +867,7 @@ function WindowModule:New(opts, theme)
     main.Position = UDim2.fromScale(0.5, 0.5)
     main.AnchorPoint = Vector2.new(0.5, 0.5)
     main.BackgroundColor3 = theme.Background
+    main.ZIndex = 1
     main.Parent = gui
     Util.Roundify(main, 10)
     Util.Stroke(main, theme.Stroke, 1)
@@ -800,6 +884,7 @@ function WindowModule:New(opts, theme)
     topbar.Name = "Topbar"
     topbar.Size = UDim2.new(1, 0, 0, 36)
     topbar.BackgroundColor3 = theme.Topbar
+    topbar.ZIndex = 3
     topbar.Parent = main
     Util.Roundify(topbar, 10)
 
@@ -813,6 +898,7 @@ function WindowModule:New(opts, theme)
     title.TextColor3 = theme.Text
     title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 3
     title.Parent = topbar
 
     local close = Instance.new("TextButton")
@@ -825,6 +911,7 @@ function WindowModule:New(opts, theme)
     close.Font = Enum.Font.GothamBold
     close.TextSize = 14
     close.Parent = topbar
+    close.ZIndex = 4
     Util.Roundify(close, 6)
     Util.TweenHover(close, theme.Accent, theme.AccentHover)
 
@@ -834,6 +921,7 @@ function WindowModule:New(opts, theme)
     sidebar.Size = UDim2.new(0, 130, 1, -44)
     sidebar.Position = UDim2.new(0, 8, 0, 44)
     sidebar.BackgroundColor3 = theme.Sidebar
+    sidebar.ZIndex = 2
     sidebar.Parent = main
     Util.Roundify(sidebar, 8)
     Util.Stroke(sidebar, theme.Stroke, 1, 0.2)
@@ -852,6 +940,7 @@ function WindowModule:New(opts, theme)
     content.Size = UDim2.new(1, -150, 1, -52)
     content.Position = UDim2.new(0, 146, 0, 44)
     content.BackgroundTransparency = 1
+    content.ZIndex = 2
     content.Parent = main
     Util.Roundify(content, 8)
 
@@ -868,6 +957,7 @@ function WindowModule:New(opts, theme)
     launcher.TextSize = 24
     launcher.AutoButtonColor = false
     launcher.Visible = false
+    launcher.ZIndex = 5
     launcher.Parent = gui
     Util.Roundify(launcher, 25)
     Util.Stroke(launcher, theme.Stroke, 1, 0.2)
@@ -876,13 +966,19 @@ function WindowModule:New(opts, theme)
 
     -- Drag avanzado con TweenPosition
     local dragging = false
-    local dragStartPos
-    local dragStartMouse
+    local dragStartPos -- Vector2
+    local dragStartMouse -- Vector2
+    local dragInputConn
 
     topbar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if not main.Visible then return end
+            -- if size not ready, wait a render step
+            if main.AbsoluteSize.X == 0 or main.AbsoluteSize.Y == 0 then
+                RunService.RenderStepped:Wait()
+            end
             dragging = true
-            dragStartPos = main.Position
+            dragStartPos = main.AbsolutePosition
             dragStartMouse = UserInputService:GetMouseLocation()
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
@@ -892,14 +988,19 @@ function WindowModule:New(opts, theme)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = UserInputService:GetMouseLocation() - dragStartMouse
-            local newPos = dragStartPos + UDim2.fromOffset(delta.X, delta.Y)
-            newPos = Util.ClampToScreen(main, gui.AbsoluteSize)
-            main.Position = newPos
-        end
-    end)
+    local function ensureDragConnection()
+        if dragInputConn then return end
+        dragInputConn = UserInputService.InputChanged:Connect(function(input)
+            if not main.Visible then return end
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = UserInputService:GetMouseLocation() - dragStartMouse
+                local rawPos = dragStartPos + delta
+                local size = (main.AbsoluteSize.X > 0 and main.AbsoluteSize.Y > 0) and main.AbsoluteSize or Vector2.new(480, 360)
+                local clamped = Util.ClampToScreen(rawPos, size)
+                main.Position = UDim2.fromOffset(clamped.X, clamped.Y)
+            end
+        end)
+    end
 
     -- Window functions
     function window:Open()
@@ -907,9 +1008,12 @@ function WindowModule:New(opts, theme)
         launcher.Visible = false
         uiScale.Scale = 0.94
         TweenService:Create(uiScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        ensureDragConnection()
     end
 
     function window:Close()
+        dragging = false
+        if dragInputConn then dragInputConn:Disconnect() dragInputConn = nil end
         TweenService:Create(uiScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.94}):Play()
         task.delay(0.16, function()
             main.Visible = false
@@ -927,6 +1031,8 @@ function WindowModule:New(opts, theme)
                 TweenService:Create(window.CurrentTab.Button, TweenInfo.new(0.18), {BackgroundColor3 = theme.Sidebar}):Play()
             end
             window.CurrentTab = tab
+            tab.CurrentContainer = nil -- force fresh section on tab switch
+            tab:EnsureSection()
             tab.Page.Visible = true
             TweenService:Create(tab.Button, TweenInfo.new(0.18), {BackgroundColor3 = theme.Accent}):Play()
         end)
@@ -935,6 +1041,8 @@ function WindowModule:New(opts, theme)
 
         if not window.CurrentTab then
             window.CurrentTab = tab
+            tab.CurrentContainer = nil
+            tab:EnsureSection()
             tab.Page.Visible = true
             TweenService:Create(tab.Button, TweenInfo.new(0.18), {BackgroundColor3 = theme.Accent}):Play()
         end
@@ -971,6 +1079,77 @@ function WindowModule:New(opts, theme)
                 tab.Theme = newTheme
                 tab.Button.BackgroundColor3 = newTheme.Sidebar
                 tab.Button.TextColor3 = newTheme.Text
+                tab.Scroll.ScrollBarImageColor3 = newTheme.Stroke
+
+                -- Secciones y elementos internos
+                for _, section in ipairs(tab.Scroll:GetChildren()) do
+                    if section:IsA("Frame") and section.Name == "Section" then
+                        section.BackgroundColor3 = newTheme.Section
+                        local stroke = section:FindFirstChildOfClass("UIStroke")
+                        if stroke then stroke.Color = newTheme.Stroke end
+
+                        local titleLabel = section:FindFirstChild("Title")
+                        if titleLabel then titleLabel.TextColor3 = newTheme.Text end
+
+                        local container = section:FindFirstChild("Container")
+                        if container then
+                            for _, elem in ipairs(container:GetChildren()) do
+                                if elem:IsA("TextButton") then
+                                    elem.BackgroundColor3 = newTheme.Accent
+                                    elem.TextColor3 = newTheme.Text
+                                    local s = elem:FindFirstChildOfClass("UIStroke")
+                                    if s then s.Color = newTheme.Stroke end
+                                elseif elem:IsA("TextLabel") then
+                                    elem.TextColor3 = newTheme.Text
+                                elseif elem:IsA("Frame") then
+                                    -- Toggle row
+                                    local toggleBtn = elem:FindFirstChild("ToggleButton")
+                                    if toggleBtn then
+                                        toggleBtn.BackgroundColor3 = newTheme.Section
+                                        local s = toggleBtn:FindFirstChildOfClass("UIStroke")
+                                        if s then s.Color = newTheme.Stroke end
+                                        local circle = toggleBtn:FindFirstChild("Circle")
+                                        if circle then
+                                            local isOn = (circle.Position.X.Scale > 0) or (circle.Position.X.Offset > 10)
+                                            circle.BackgroundColor3 = isOn and newTheme.Accent or newTheme.Stroke
+                                        end
+                                    end
+
+                                    -- Slider row
+                                    if elem.Name == "SliderRow" then
+                                        local nameLbl = elem:FindFirstChildWhichIsA("TextLabel")
+                                        if nameLbl then nameLbl.TextColor3 = newTheme.Text end
+                                        local valueLbl = elem:FindFirstChild("SliderValue")
+                                        if valueLbl then valueLbl.TextColor3 = newTheme.Text end
+                                        local bar = elem:FindFirstChild("SliderBar")
+                                        if bar then
+                                            bar.BackgroundColor3 = newTheme.Section
+                                            local bs = bar:FindFirstChildOfClass("UIStroke")
+                                            if bs then bs.Color = newTheme.Stroke end
+                                            local fill = bar:FindFirstChild("SliderFill")
+                                            if fill then fill.BackgroundColor3 = newTheme.Accent end
+                                        end
+                                    end
+
+                                    -- TextBox row
+                                    if elem.Name == "TextBoxRow" then
+                                        for _, child in ipairs(elem:GetChildren()) do
+                                            if child:IsA("TextLabel") then
+                                                child.TextColor3 = newTheme.Text
+                                            elseif child:IsA("TextBox") then
+                                                child.BackgroundColor3 = newTheme.Section
+                                                child.TextColor3 = newTheme.Text
+                                                child.PlaceholderColor3 = newTheme.Stroke
+                                                local s = child:FindFirstChildOfClass("UIStroke")
+                                                if s then s.Color = newTheme.Stroke end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
             
             Notifications:Show({
@@ -992,17 +1171,14 @@ function WindowModule:New(opts, theme)
         window:Open()
     end)
 
-    -- RightShift keybind to toggle
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.KeyCode == Enum.KeyCode.RightShift then
-            if main.Visible then
-                window:Close()
-            else
-                window:Open()
-            end
+    -- Built-in toggle keybind (RightShift) via central Keybinds listener to avoid duplicate connections
+    Keybinds:BindInternal(Enum.KeyCode.RightShift, function()
+        if main.Visible then
+            window:Close()
+        else
+            window:Open()
         end
-    end)
+    end, "toggle_ui")
 
     window.GUI = gui
     window.Main = main
@@ -1029,7 +1205,10 @@ end
 function Library:CreateWindow(opts)
     opts = opts or {}
     local theme = Themes[Config.Theme] or Themes.Default
-    return WindowModule:New(opts, theme)
+    local window = WindowModule:New(opts, theme)
+    RunService.RenderStepped:Wait() -- wait one frame to ensure GUI is parented/rendered
+    window:Open() -- ensure window is opened and interactive by default
+    return window
 end
 
 function Library:ShowNotification(opts)
