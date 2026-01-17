@@ -761,6 +761,8 @@ local dragOffsetMobile = 150
 
 Ryderwinston.DisplayOrder = 100
 LoadingFrame.Version.Text = Release
+LoadingFrame.Title.Text = "Ryderwinston"
+LoadingFrame.Subtitle.Text = "UI Library"
 
 -- Thanks to Latte Softworks for the Lucide integration for Roblox
 local Icons = useStudio and require(script.Parent.icons) or loadWithTimeout('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/icons.lua')
