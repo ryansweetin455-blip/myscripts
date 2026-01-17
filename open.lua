@@ -6,7 +6,7 @@
 	Built with professional standards and smooth animations
 	
 	Created by: Ryderwinston Development Team
-	Version: 1.0.0
+	Version: 1.0.1
 	Release: January 2026
 
 ]]
@@ -763,6 +763,13 @@ Ryderwinston.DisplayOrder = 100
 LoadingFrame.Version.Text = Release
 LoadingFrame.Title.Text = "Ryderwinston"
 LoadingFrame.Subtitle.Text = "UI Library"
+
+-- Replace all instances of "Rayfield" in LoadingFrame with "Ryderwinston"
+for _, descendant in ipairs(LoadingFrame:GetDescendants()) do
+	if descendant:IsA("TextLabel") or descendant:IsA("TextBox") then
+		descendant.Text = string.gsub(descendant.Text, "Rayfield", "Ryderwinston")
+	end
+end
 
 -- Thanks to Latte Softworks for the Lucide integration for Roblox
 local Icons = useStudio and require(script.Parent.icons) or loadWithTimeout('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/icons.lua')
