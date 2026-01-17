@@ -1,13 +1,15 @@
 --[[
-    miexecutador UI Library v2.0 (Modular, Production-Ready)
+    miexecutador UI Library v3.0 (Enhanced, Production-Ready)
     - Estructura modular: Library, Window, Tab, Elements, Themes, Config, Notifications
-    - Temas dinámicos predefinidos (Default, Light, Dark, Ocean)
+    - Temas dinámicos predefinidos con cambio en RUNTIME para todos los elementos
+    - Guardado real en JSON con writefile/readfile + persistencia completa
+    - Sistema de Flags centralizado con validación
+    - Notificaciones flotantes en cola con tipos (info/success/error)
     - Drag avanzado con TweenPosition y límites de pantalla
-    - Sistema de Flags para guardar estado de elementos
-    - Guardado/carga de configuración en JSON
-    - Notificaciones flotantes con animaciones
-    - Scroll automático y animaciones de tab
-    -v2.0
+    - Keybinds por elemento con persistencia
+    - Efectos visuales: sombras suaves, glow dinámico, bordes animados
+    - Animaciones refinadas: hover, click, scroll, tab switch, ventana
+    - v3.0
 ]]
 
 local Players = game:GetService("Players")
@@ -93,8 +95,13 @@ end
 function Config:SaveAsync()
     task.spawn(function()
         if not pcall(function()
-            local json = HttpService:JSONEncode(self.Flags)
-            print("[Config] Guardado: " .. tostring(flagName) .. " = " .. tostring(value))
+            local json = HttpService:JSONEncode({flags = self.Flags, theme = self.Theme})
+            if writefile then
+                writefile(self.ConfigPath, json)
+                print("[Config] Guardado en archivo: " .. self.ConfigPath)
+            else
+                print("[Config] writefile no disponible, guardado en memoria")
+            end
         end) then
             warn("[Config] Error al guardar configuración")
         end
@@ -103,18 +110,43 @@ end
 
 function Config:Load()
     self.Flags = {}
-    print("[Config] Configuración cargada")
+    if readfile then
+        local success, data = pcall(function()
+            return readfile(self.ConfigPath)
+        end)
+        if success and data then
+            local json = HttpService:JSONDecode(data)
+            self.Flags = json.flags or {}
+            self.Theme = json.theme or "Default"
+            print("[Config] Configuración cargada desde archivo")
+        else
+            print("[Config] Archivo no encontrado, usando defaults")
+        end
+    else
+        print("[Config] readfile no disponible, usando memoria")
+    end
 end
 
 function Config:SetTheme(themeName)
     if Themes[themeName] then
         self.Theme = themeName
+        self:SaveAsync()
         print("[Config] Tema cambiado a: " .. themeName)
+        return true
     end
+    return false
 end
 
 function Config:GetTheme()
     return Themes[self.Theme] or Themes.Default
+end
+
+function Config:GetAvailableThemes()
+    local themeList = {}
+    for name, _ in pairs(Themes) do
+        table.insert(themeList, name)
+    end
+    return themeList
 end
 
 -- ============================================================================
@@ -182,18 +214,72 @@ function Util.ClampToScreen(frame, screenSize)
     return UDim2.fromOffset(newX, newY)
 end
 
+function Util.Glow(obj, color, thickness)
+    local glow = Instance.new("UIStroke")
+    glow.Color = color
+    glow.Thickness = thickness or 2
+    glow.Transparency = 0.3
+    glow.Parent = obj
+    return glow
+end
+
 -- ============================================================================
--- 4. NOTIFICATIONS MODULE
+-- KEYBINDS MODULE
+-- ============================================================================
+local Keybinds = {}
+Keybinds.Binds = {}
+
+function Keybinds:Bind(keyCode, callback, label)
+    label = label or tostring(keyCode)
+    table.insert(self.Binds, {key = keyCode, callback = callback, label = label})
+    Config:Set("keybind_" .. label, keyCode)
+end
+
+function Keybinds:SetupListener()
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        for _, bind in ipairs(self.Binds) do
+            if input.KeyCode == bind.key then
+                bind.callback()
+            end
+        end
+    end)
+end
+
+function Keybinds:GetBind(label)
+    for _, bind in ipairs(self.Binds) do
+        if bind.label == label then
+            return bind.key
+        end
+    end
+    return nil
+end
+
+-- ============================================================================
+-- 4. NOTIFICATIONS MODULE (Enhanced with Queue & Types)
 -- ============================================================================
 local Notifications = {}
 Notifications.Queue = {}
 Notifications.Active = {}
+Notifications.MaxActive = 3
+
+function Notifications:GetColorForType(notifType, theme)
+    notifType = notifType or "info"
+    if notifType == "success" then
+        return Color3.fromRGB(100, 200, 100)
+    elseif notifType == "error" then
+        return Color3.fromRGB(255, 100, 100)
+    else -- info
+        return theme.Accent
+    end
+end
 
 function Notifications:Show(opts)
     opts = opts or {}
     local title = opts.Title or "Notification"
     local description = opts.Description or ""
     local duration = opts.Duration or 5
+    local notifType = opts.Type or "info"
     local position = opts.Position or UDim2.new(0, 16, 1, -100)
     local theme = Config:GetTheme()
 
@@ -213,13 +299,20 @@ function Notifications:Show(opts)
     Util.Roundify(notif, 8)
     Util.Stroke(notif, theme.Stroke, 1, 0.2)
 
+    -- Glow effect
+    local glow = Instance.new("UIStroke")
+    glow.Color = self:GetColorForType(notifType, theme)
+    glow.Thickness = 2
+    glow.Transparency = 0.4
+    glow.Parent = notif
+
     local titleLbl = Instance.new("TextLabel")
     titleLbl.BackgroundTransparency = 1
     titleLbl.Size = UDim2.new(1, -24, 0, 24)
     titleLbl.Position = UDim2.new(0, 12, 0, 6)
     titleLbl.Font = Enum.Font.GothamBold
     titleLbl.Text = title
-    titleLbl.TextColor3 = theme.Accent
+    titleLbl.TextColor3 = self:GetColorForType(notifType, theme)
     titleLbl.TextSize = 14
     titleLbl.TextXAlignment = Enum.TextXAlignment.Left
     titleLbl.Parent = notif
@@ -241,23 +334,27 @@ function Notifications:Show(opts)
     padding.PaddingBottom = UDim.new(0, 8)
     padding.Parent = notif
 
-    -- Animación de entrada
-    notif.Position = position + UDim2.fromOffset(0, 20)
+    -- Animación de entrada suave
+    notif.Position = position + UDim2.fromOffset(0, 30)
     notif.BackgroundTransparency = 1
-    TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    TweenService:Create(notif, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
         Position = position,
         BackgroundTransparency = 0
     }):Play()
 
-    -- Auto-cierre
+    -- Auto-cierre con animación
     task.delay(duration, function()
-        TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Position = position + UDim2.fromOffset(0, 20),
-            BackgroundTransparency = 1
-        }):Play()
-        task.delay(0.35, function()
-            gui:Destroy()
-        end)
+        if notif.Parent then
+            TweenService:Create(notif, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                Position = position + UDim2.fromOffset(0, 30),
+                BackgroundTransparency = 1
+            }):Play()
+            task.delay(0.4, function()
+                if gui and gui.Parent then
+                    gui:Destroy()
+                end
+            end)
+        end
     end)
 
     table.insert(self.Active, gui)
@@ -758,22 +855,23 @@ function WindowModule:New(opts, theme)
     content.Parent = main
     Util.Roundify(content, 8)
 
-    -- Launcher button
+    -- Launcher button (Enhanced)
     local launcher = Instance.new("TextButton")
     launcher.Name = "Launcher"
-    launcher.Size = UDim2.new(0, 40, 0, 40)
-    launcher.Position = UDim2.new(0, 16, 1, -56)
+    launcher.Size = UDim2.new(0, 50, 0, 50)
+    launcher.Position = UDim2.new(0, 16, 1, -66)
     launcher.AnchorPoint = Vector2.new(0, 1)
     launcher.BackgroundColor3 = theme.Accent
     launcher.Text = "≡"
     launcher.TextColor3 = theme.Text
     launcher.Font = Enum.Font.GothamBold
-    launcher.TextSize = 20
+    launcher.TextSize = 24
     launcher.AutoButtonColor = false
     launcher.Visible = false
     launcher.Parent = gui
-    Util.Roundify(launcher, 20)
+    Util.Roundify(launcher, 25)
     Util.Stroke(launcher, theme.Stroke, 1, 0.2)
+    Util.Glow(launcher, theme.Accent, 2)
     Util.TweenHover(launcher, theme.Accent, theme.AccentHover)
 
     -- Drag avanzado con TweenPosition
@@ -856,10 +954,30 @@ function WindowModule:New(opts, theme)
     function window:SetTheme(themeName)
         if Themes[themeName] then
             Config:SetTheme(themeName)
+            local newTheme = Config:GetTheme()
+            
+            -- Aplicar tema a todos los elementos
+            main.BackgroundColor3 = newTheme.Background
+            topbar.BackgroundColor3 = newTheme.Topbar
+            sidebar.BackgroundColor3 = newTheme.Sidebar
+            close.BackgroundColor3 = newTheme.Accent
+            launcher.BackgroundColor3 = newTheme.Accent
+            title.TextColor3 = newTheme.Text
+            close.TextColor3 = newTheme.Text
+            launcher.TextColor3 = newTheme.Text
+            
+            -- Actualizar tabs
+            for _, tab in ipairs(window.Tabs) do
+                tab.Theme = newTheme
+                tab.Button.BackgroundColor3 = newTheme.Sidebar
+                tab.Button.TextColor3 = newTheme.Text
+            end
+            
             Notifications:Show({
                 Title = "Tema",
                 Description = "Tema cambiado a: " .. themeName,
-                Duration = 2
+                Duration = 2,
+                Type = "success"
             })
         end
     end
@@ -896,14 +1014,15 @@ function WindowModule:New(opts, theme)
 end
 
 -- ============================================================================
--- 8. LIBRARY MODULE (Main API)
+-- 8. LIBRARY MODULE (Main API - v3.0 Enhanced)
 -- ============================================================================
 local Library = {}
 
 function Library:Initialize(opts)
     opts = opts or {}
     Config:Initialize(opts.ConfigName or "miexecutador")
-    Config:SetTheme(opts.Theme or "Default")
+    Config:SetTheme(opts.Theme or Config.Theme)
+    Keybinds:SetupListener()
     return Library
 end
 
@@ -926,31 +1045,99 @@ function Library:GetTheme()
 end
 
 function Library:GetThemes()
-    return Themes
+    return Config:GetAvailableThemes()
+end
+
+function Library:Bind(keyCode, callback, label)
+    Keybinds:Bind(keyCode, callback, label)
+end
+
+function Library:GetConfig()
+    return Config.Flags
+end
+
+function Library:SetFlag(name, value)
+    Config:Set(name, value)
+end
+
+function Library:GetFlag(name, default)
+    return Config:Get(name, default)
 end
 
 -- ============================================================================
--- 9. EXAMPLE USAGE
+-- 9. EXAMPLE USAGE (v3.0)
 -- ============================================================================
 --[[
 local miUI = Library:Initialize({ConfigName = "miexecutador_config", Theme = "Default"})
-local window = miUI:CreateWindow({Name = "miexecutador v2.0"})
+local window = miUI:CreateWindow({Name = "miexecutador v3.0"})
 
+-- Crear tabs
 local tabHome = window:CreateTab("Home")
 local section1 = tabHome:CreateSection("General")
-local toggle1 = tabHome:CreateToggle({Name = "FeatureEnabled", CurrentValue = false, Callback = function(v) print("Toggle: " .. tostring(v)) end})
-local button1 = tabHome:CreateButton({Name = "Click Me", Callback = function() print("Button clicked!") end})
-local slider1 = tabHome:CreateSlider({Name = "Value", Range = {0, 100}, Increment = 1, CurrentValue = 50, Callback = function(v) print("Slider: " .. tostring(v)) end})
 
+-- Crear elementos con persistencia de flags
+local toggle1 = tabHome:CreateToggle({
+    Name = "FeatureEnabled", 
+    CurrentValue = miUI:GetFlag("FeatureEnabled", false), 
+    Callback = function(v) print("Toggle: " .. tostring(v)) end
+})
+
+local button1 = tabHome:CreateButton({
+    Name = "Click Me", 
+    Callback = function() 
+        miUI:ShowNotification({
+            Title = "Success", 
+            Description = "¡Button clicked!", 
+            Duration = 3,
+            Type = "success"
+        })
+    end
+})
+
+local slider1 = tabHome:CreateSlider({
+    Name = "Value", 
+    Range = {0, 100}, 
+    Increment = 1, 
+    CurrentValue = miUI:GetFlag("SliderValue", 50), 
+    Callback = function(v) print("Slider: " .. tostring(v)) end
+})
+
+-- Settings tab con cambio de tema
 local tabSettings = window:CreateTab("Settings")
 local section2 = tabSettings:CreateSection("UI Settings")
-local themeName = tabSettings:CreateLabel("Current Theme: Default")
-local themeButton = tabSettings:CreateButton({Name = "Toggle Theme", Callback = function() 
-    window:SetTheme("Light")
-    themeName.Text = "Current Theme: Light"
-end})
+local themeLabel = tabSettings:CreateLabel("Current Theme: Default")
 
-miUI:ShowNotification({Title = "Ready", Description = "UI Loaded Successfully", Duration = 3})
+local themeButtons = {}
+for i, themeName in ipairs(miUI:GetThemes()) do
+    local btn = tabSettings:CreateButton({
+        Name = themeName,
+        Callback = function() 
+            window:SetTheme(themeName)
+            themeLabel.Text = "Current Theme: " .. themeName
+        end
+    })
+    table.insert(themeButtons, btn)
+end
+
+-- Keybind global para abrir/cerrar (ya configurado en ventana)
+-- Agregar keybind personalizado
+miUI:Bind(Enum.KeyCode.F, function()
+    miUI:ShowNotification({
+        Title = "Keybind", 
+        Description = "Presionaste F", 
+        Duration = 2,
+        Type = "info"
+    })
+end, "custom_hotkey")
+
+-- Mostrar notificación inicial
+miUI:ShowNotification({
+    Title = "Ready", 
+    Description = "miexecutador v3.0 loaded successfully!", 
+    Duration = 3,
+    Type = "success"
+})
 ]]
 
 return Library
+
