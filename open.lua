@@ -354,29 +354,4 @@ MovementTab:CreateInput({
 	end
 })
 
--- Generador de prueba solicitado por el usuario
-local function generate()
-    print("attempting to get money, may lag a bit")
-    -- Evitar congelar el cliente: bucle limitado (~0.5s)
-    local t0 = os.clock()
-    while os.clock() - t0 < 0.5 do end
-    print("looping money.. (may lag)")
-    local lp = game:GetService("Players").LocalPlayer
-    if lp then
-        -- Forzar respawn del jugador (puede causar lag)
-        lp.Character = nil
-    end
-    local Players = game:GetService("Players")
-    for i, v in ipairs(Players:GetPlayers()) do
-        print(v.Name)
-    end
-end
 
--- Botón para ejecutar el generador de prueba
-MovementTab:CreateButton({
-    Name = "Generar (prueba)",
-    Callback = function()
-        -- Ejecuta sin bloquear la UI
-        task.spawn(generate)
-    end
-})
