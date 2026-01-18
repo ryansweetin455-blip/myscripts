@@ -199,3 +199,30 @@ MovementTab:CreateButton({
 		print(string.rep("=", 50) .. "\n")
 	end
 })
+-- Botón para activar MoneyWeather
+MovementTab:CreateButton({
+	Name = "Activar MoneyWeather",
+	Callback = function()
+		pcall(function()
+			local moneyWeather = workspace:FindFirstChild("MoneyWeather")
+			if moneyWeather then
+				print("✓ MoneyWeather encontrado")
+				-- Hacerlo visible si estaba invisible
+				if moneyWeather:IsA("BasePart") or moneyWeather:IsA("Model") then
+					moneyWeather.Transparency = 0
+					moneyWeather.CanCollide = false
+					moneyWeather.CanTouch = true
+					print("✓ MoneyWeather activado y configurado")
+				end
+				-- Si tiene un Script, intenta ejecutarlo
+				local script = moneyWeather:FindFirstChildOfClass("Script")
+				if script then
+					script.Enabled = true
+					print("✓ Script de MoneyWeather habilitado")
+				end
+			else
+				print("✗ MoneyWeather no encontrado en el workspace")
+			end
+		end)
+	end
+})
