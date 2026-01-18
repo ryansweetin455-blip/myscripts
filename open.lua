@@ -204,9 +204,10 @@ MovementTab:CreateButton({
 	Name = "Activar MoneyWeather",
 	Callback = function()
 		pcall(function()
-			local moneyWeather = workspace:FindFirstChild("MoneyWeather")
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local moneyWeather = ReplicatedStorage:FindFirstChild("MoneyWeather")
 			if moneyWeather then
-				print("✓ MoneyWeather encontrado")
+				print("✓ MoneyWeather encontrado en ReplicatedStorage")
 				-- Hacerlo visible si estaba invisible
 				if moneyWeather:IsA("BasePart") or moneyWeather:IsA("Model") then
 					moneyWeather.Transparency = 0
@@ -221,8 +222,39 @@ MovementTab:CreateButton({
 					print("✓ Script de MoneyWeather habilitado")
 				end
 			else
-				print("✗ MoneyWeather no encontrado en el workspace")
+				print("✗ MoneyWeather no encontrado en ReplicatedStorage")
 			end
 		end)
+	end
+})
+
+-- Botón para enviar dinero al servidor
+MovementTab:CreateButton({
+	Name = "Enviar 100 Money",
+	Callback = function()
+		pcall(function()
+			local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
+			PostieSent:FireServer("dinero", {cantidad = 100})
+			print("✓ Se enviaron 100 Money al servidor")
+		end)
+	end
+})
+
+-- Input para enviar dinero personalizado
+MovementTab:CreateInput({
+	Name = "Cantidad de Money",
+	PlaceholderText = "Ej: 500",
+	RemoveTextAfterFocusLost = false,
+	Callback = function(text)
+		local cantidad = tonumber(text)
+		if cantidad and cantidad > 0 then
+			pcall(function()
+				local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
+				PostieSent:FireServer("dinero", {cantidad = cantidad})
+				print("✓ Se enviaron " .. tostring(cantidad) .. " Money al servidor")
+			end)
+		else
+			print("✗ Ingresa un número válido mayor a 0")
+		end
 	end
 })
