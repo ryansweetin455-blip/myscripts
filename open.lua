@@ -352,6 +352,32 @@ MovementTab:CreateInput({
 			end
 		end)
 	end
+		-- ...existing code...
+
+-- === MANEJADOR DE REMOTEEVENT EN EL SERVIDOR ===
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PostieSent = ReplicatedStorage:WaitForChild("PostieSent")
+local PostieReceived = ReplicatedStorage:WaitForChild("PostieReceived")
+
+PostieSent.OnServerEvent:Connect(function(player, tipo, datos)
+    if tipo == "dinero" and datos and type(datos) == "table" then
+        -- Validaciones de seguridad
+        if datos.cantidad > 0 and datos.cantidad <= 100000 then
+            -- Suma el dinero al jugador (asegúrate de tener leaderstats y Money)
+            if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Money") then
+                player.leaderstats.Money.Value = player.leaderstats.Money.Value + datos.cantidad
+                PostieReceived:FireClient(player, datos.transactionID, true, "Dinero entregado correctamente")
+            else
+                PostieReceived:FireClient(player, datos.transactionID, false, "No tienes Money en leaderstats")
+            end
+        else
+            PostieReceived:FireClient(player, datos.transactionID, false, "Cantidad inválida")
+        end
+    else
+        PostieReceived:FireClient(player, datos and datos.transactionID or "?", false, "Solicitud inválida")
+    end
+end)
 })
+
 
 
