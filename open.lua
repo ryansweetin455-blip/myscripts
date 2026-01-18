@@ -37,9 +37,32 @@ local autoApply = true -- alterna aplicar automáticamente desde el input
 local RunService = game:GetService("RunService")
 local autoFarm = false
 local maintainConn
+local pendingTransactions = {} -- Rastrear transacciones pendientes
 
 -- Crear una pestaña de movimiento
 local MovementTab = Window:CreateTab("Movimiento")
+
+-- Escuchar respuestas del servidor
+local function setupResponseListener()
+	pcall(function()
+		local ReplicatedStorage = game:GetService("ReplicatedStorage")
+		local PostieReceived = ReplicatedStorage:WaitForChild("PostieReceived", 5)
+		
+		PostieReceived.OnClientEvent:Connect(function(transactionID, exito, mensaje)
+			if pendingTransactions[transactionID] then
+				if exito then
+					print("✅ CONFIRMADO: " .. mensaje)
+				else
+					print("❌ RECHAZADO: " .. mensaje)
+				end
+				pendingTransactions[transactionID] = nil
+			end
+		end)
+		print("✓ Listener de servidor configurado")
+	end)
+end
+
+setupResponseListener()
 
 -- Label de estado de velocidad y utilidades
 local SpeedLabel = MovementTab:CreateLabel("WALK SPEED: " .. tostring(desiredSpeed))
@@ -250,6 +273,9 @@ MovementTab:CreateButton({
 			local transactionID = Player.UserId .. "_" .. math.floor(currentTime * 1000)
 			local timestamp = os.time()
 			
+			-- Registrar transacción pendiente
+			pendingTransactions[transactionID] = true
+			
 			local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
 			PostieSent:FireServer("dinero", {
 				cantidad = 100,
@@ -257,7 +283,14 @@ MovementTab:CreateButton({
 				timestamp = timestamp,
 				jugador = Player.Name
 			})
-			print("✓ Solicitud #" .. transactionID .. " enviada - Esperando confirmación del servidor...")
+			print("📤 Solicitud #" .. transactionID .. " enviada - Esperando confirmación del servidor...")
+			
+			-- Timeout de 10 segundos
+			task.wait(10)
+			if pendingTransactions[transactionID] then
+				print("⏱️ TIMEOUT: El servidor no respondió a tiempo")
+				pendingTransactions[transactionID] = nil
+			end
 		end)
 	end
 })
@@ -298,6 +331,9 @@ MovementTab:CreateInput({
 			local transactionID = Player.UserId .. "_" .. math.floor(currentTime * 1000)
 			local timestamp = os.time()
 			
+			-- Registrar transacción pendiente
+			pendingTransactions[transactionID] = true
+			
 			local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
 			PostieSent:FireServer("dinero", {
 				cantidad = cantidad,
@@ -305,7 +341,14 @@ MovementTab:CreateInput({
 				timestamp = timestamp,
 				jugador = Player.Name
 			})
-			print("✓ Solicitud #" .. transactionID .. " - " .. cantidad .. " Money enviada")
+			print("📤 Solicitud #" .. transactionID .. " - " .. cantidad .. " Money enviada")
+			
+			-- Timeout de 10 segundos
+			task.wait(10)
+			if pendingTransactions[transactionID] then
+				print("⏱️ TIMEOUT: El servidor no respondió a tiempo")
+				pendingTransactions[transactionID] = nil
+			end
 		end)
 	end
 })
