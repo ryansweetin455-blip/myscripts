@@ -13,12 +13,16 @@ local Player = game.Players.LocalPlayer
 local humanoid
 
 local function resolveHumanoid()
-	pcall(function()
-		local character = Player.Character or Player.CharacterAdded:Wait()
+	local success = pcall(function()
+		local character = Player.Character
+		if not character then
+			character = Player.CharacterAdded:Wait()
+		end
 		if character then
-			humanoid = character:FindFirstChildOfClass("Humanoid")
+			humanoid = character:WaitForChild("Humanoid", 5)
 		end
 	end)
+	return success and humanoid
 end
 
 resolveHumanoid()
@@ -45,9 +49,16 @@ local function applySpeed()
 		resolveHumanoid()
 	end
 	if humanoid and humanoid.Parent then
-		pcall(function()
+		local success, err = pcall(function()
 			humanoid.WalkSpeed = desiredSpeed
 		end)
+		if not success then
+			warn("Error al aplicar velocidad: " .. tostring(err))
+		end
+		return success
+	else
+		warn("Humanoid no encontrado. Intenta de nuevo en un momento.")
+		return false
 	end
 end
 
@@ -67,8 +78,15 @@ local SpeedSlider = MovementTab:CreateSlider({
 	CurrentValue = desiredSpeed,
 	Callback = function(value)
 		desiredSpeed = clamp(value, 8, 500)
-		applySpeed()
-		updateSpeedLabel()
+		local applied = applySpeed()
+		if applied then
+			updateSpeedLabel()
+		else
+			-- Si no se pudo aplicar, intenta de nuevo después de un breve retraso
+			task.wait(0.1)
+			applySpeed()
+			updateSpeedLabel()
+		end
 	end
 })
 
