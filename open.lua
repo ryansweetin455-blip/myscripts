@@ -229,32 +229,83 @@ MovementTab:CreateButton({
 })
 
 -- Botón para enviar dinero al servidor
+local lastMoneyRequest = 0
+local moneyRequestCooldown = 2 -- segundos
+
 MovementTab:CreateButton({
 	Name = "Enviar 100 Money",
 	Callback = function()
+		local currentTime = tick()
+		
+		-- Validar cooldown (evitar spam)
+		if currentTime - lastMoneyRequest < moneyRequestCooldown then
+			print("⏳ Espera " .. math.ceil(moneyRequestCooldown - (currentTime - lastMoneyRequest)) .. " segundos antes de enviar dinero de nuevo")
+			return
+		end
+		
+		lastMoneyRequest = currentTime
+		
 		pcall(function()
+			-- Generar ID único de transacción
+			local transactionID = Player.UserId .. "_" .. math.floor(currentTime * 1000)
+			local timestamp = os.time()
+			
 			local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
-			PostieSent:FireServer("dinero", {cantidad = 100})
-			print("✓ Se enviaron 100 Money al servidor")
+			PostieSent:FireServer("dinero", {
+				cantidad = 100,
+				transactionID = transactionID,
+				timestamp = timestamp,
+				jugador = Player.Name
+			})
+			print("✓ Solicitud #" .. transactionID .. " enviada - Esperando confirmación del servidor...")
 		end)
 	end
 })
 
 -- Input para enviar dinero personalizado
+local lastCustomMoneyRequest = 0
+
 MovementTab:CreateInput({
 	Name = "Cantidad de Money",
 	PlaceholderText = "Ej: 500",
 	RemoveTextAfterFocusLost = false,
 	Callback = function(text)
 		local cantidad = tonumber(text)
-		if cantidad and cantidad > 0 then
-			pcall(function()
-				local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
-				PostieSent:FireServer("dinero", {cantidad = cantidad})
-				print("✓ Se enviaron " .. tostring(cantidad) .. " Money al servidor")
-			end)
-		else
+		local currentTime = tick()
+		
+		-- Validar cantidad
+		if not cantidad or cantidad <= 0 then
 			print("✗ Ingresa un número válido mayor a 0")
+			return
 		end
+		
+		-- Validar máximo permitido (para seguridad)
+		if cantidad > 100000 then
+			print("✗ La cantidad máxima es 100000")
+			return
+		end
+		
+		-- Validar cooldown
+		if currentTime - lastCustomMoneyRequest < moneyRequestCooldown then
+			print("⏳ Espera " .. math.ceil(moneyRequestCooldown - (currentTime - lastCustomMoneyRequest)) .. " segundos")
+			return
+		end
+		
+		lastCustomMoneyRequest = currentTime
+		
+		pcall(function()
+			-- Generar ID único de transacción
+			local transactionID = Player.UserId .. "_" .. math.floor(currentTime * 1000)
+			local timestamp = os.time()
+			
+			local PostieSent = game:GetService("ReplicatedStorage"):WaitForChild("PostieSent")
+			PostieSent:FireServer("dinero", {
+				cantidad = cantidad,
+				transactionID = transactionID,
+				timestamp = timestamp,
+				jugador = Player.Name
+			})
+			print("✓ Solicitud #" .. transactionID .. " - " .. cantidad .. " Money enviada")
+		end)
 	end
 })
