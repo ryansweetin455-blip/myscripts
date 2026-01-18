@@ -13,8 +13,12 @@ local Player = game.Players.LocalPlayer
 local humanoid
 
 local function resolveHumanoid()
-	local character = Player.Character or Player.CharacterAdded:Wait()
-	humanoid = character:FindFirstChildOfClass("Humanoid")
+	pcall(function()
+		local character = Player.Character or Player.CharacterAdded:Wait()
+		if character then
+			humanoid = character:FindFirstChildOfClass("Humanoid")
+		end
+	end)
 end
 
 resolveHumanoid()
@@ -37,18 +41,22 @@ local MovementTab = Window:CreateTab("Movimiento")
 local SpeedLabel = MovementTab:CreateLabel("WALK SPEED: " .. tostring(desiredSpeed))
 
 local function applySpeed()
-	if not humanoid then
+	if not humanoid or not humanoid.Parent then
 		resolveHumanoid()
 	end
-	if humanoid then
-		humanoid.WalkSpeed = desiredSpeed
+	if humanoid and humanoid.Parent then
+		pcall(function()
+			humanoid.WalkSpeed = desiredSpeed
+		end)
 	end
 end
 
 local function updateSpeedLabel()
-	if SpeedLabel and SpeedLabel.Set then
-		SpeedLabel:Set("WALK SPEED: " .. tostring(desiredSpeed))
-	end
+	pcall(function()
+		if SpeedLabel and SpeedLabel.Set then
+			SpeedLabel:Set("WALK SPEED: " .. tostring(desiredSpeed))
+		end
+	end)
 end
 
 -- Slider para ajustar la velocidad de forma cómoda
@@ -75,6 +83,12 @@ MovementTab:CreateInput({
 			if autoApply then
 				applySpeed()
 			end
+			-- Sincronizar el slider
+			pcall(function()
+				if SpeedSlider and SpeedSlider.SetValue then
+					SpeedSlider:SetValue(desiredSpeed)
+				end
+			end)
 			updateSpeedLabel()
 		end
 	end
@@ -124,74 +138,14 @@ MovementTab:CreateToggle({
 MovementTab:CreateButton({
 	Name = "Restablecer velocidad (16)",
 	Callback = function()
-		if not humanoid then
-			resolveHumanoid()
-		end
-		if humanoid then
-			humanoid.WalkSpeed = 16
-			desiredSpeed = 16
-			updateSpeedLabel()
-		end
-	end
-})
-
--- ==========================
--- Pestaña educativa (local):
--- No toca datos del servidor
--- ==========================
-local EducationalTab = Window:CreateTab("Educativo")
-
-local rebirths = 0
-local money = 0
-local maxMoney = 1000000
-local perClick = 1000
-
-local NoteLabel = EducationalTab:CreateLabel("Modo educativo: local, sin afectar el servidor")
-local RebirthLabel = EducationalTab:CreateLabel("Rebirths (local): 0")
-local MoneyLabel = EducationalTab:CreateLabel("Money (local): 0")
-
-local function updateEducationalUI()
-	if RebirthLabel and RebirthLabel.Set then
-		RebirthLabel:Set("Rebirths (local): " .. rebirths)
-	end
-	if MoneyLabel and MoneyLabel.Set then
-		MoneyLabel:Set("Money (local): " .. money)
-	end
-end
-
-EducationalTab:CreateInput({
-	Name = "Incremento de dinero por click",
-	PlaceholderText = "Ej: 1000",
-	RemoveTextAfterFocusLost = false,
-	Callback = function(text)
-		local n = tonumber(text)
-		if n then
-			perClick = clamp(math.floor(n), 1, 100000)
-		end
-	end
-})
-
-EducationalTab:CreateButton({
-	Name = "Sumar dinero (local)",
-	Callback = function()
-		money = clamp(money + perClick, 0, maxMoney)
-		updateEducationalUI()
-	end
-})
-
-EducationalTab:CreateButton({
-	Name = "Sumar 1 rebirth (local)",
-	Callback = function()
-		rebirths = clamp(rebirths + 1, 0, 100000)
-		updateEducationalUI()
-	end
-})
-
-EducationalTab:CreateButton({
-	Name = "Reiniciar contadores (local)",
-	Callback = function()
-		money = 0
-		rebirths = 0
-		updateEducationalUI()
+		desiredSpeed = 16
+		applySpeed()
+		-- Sincronizar el slider
+		pcall(function()
+			if SpeedSlider and SpeedSlider.SetValue then
+				SpeedSlider:SetValue(16)
+			end
+		end)
+		updateSpeedLabel()
 	end
 })
