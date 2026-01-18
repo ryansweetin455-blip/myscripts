@@ -120,38 +120,6 @@ MovementTab:CreateButton({
 	end
 })
 
--- Toggle para activar/desactivar la auto-aplicación desde el input
-MovementTab:CreateToggle({
-	Name = "Auto-aplicar velocidad",
-	CurrentValue = true,
-	Callback = function(value)
-		autoApply = value
-	end
-})
-
--- Toggle para mantener la velocidad (legit auto-farm)
-MovementTab:CreateToggle({
-	Name = "LEGIT AUTO-FARM",
-	CurrentValue = false,
-	Callback = function(value)
-		autoFarm = value
-		if maintainConn then
-			maintainConn:Disconnect()
-			maintainConn = nil
-		end
-		if autoFarm then
-			maintainConn = RunService.Heartbeat:Connect(function()
-				if not humanoid or not humanoid.Parent then
-					resolveHumanoid()
-				end
-				if humanoid and humanoid.WalkSpeed ~= desiredSpeed then
-					applySpeed()
-				end
-			end)
-		end
-	end
-})
-
 -- Botón de restablecimiento a velocidad estándar
 MovementTab:CreateButton({
 	Name = "Restablecer velocidad (16)",
@@ -165,5 +133,69 @@ MovementTab:CreateButton({
 			end
 		end)
 		updateSpeedLabel()
+	end
+})
+
+-- Botón para ver todo el juego en consola
+MovementTab:CreateButton({
+	Name = "Ver Todo el Juego (Consola)",
+	Callback = function()
+		local function printChildren(parent, indent)
+			indent = indent or ""
+			for _, child in ipairs(parent:GetChildren()) do
+				print(indent .. "├─ " .. child.Name .. " (" .. child.ClassName .. ")")
+			end
+		end
+		
+		print("\n" .. string.rep("=", 50))
+		print("ESTRUCTURA DEL JUEGO")
+		print(string.rep("=", 50))
+		
+		-- Workspace
+		print("\n[WORKSPACE]")
+		printChildren(workspace, "  ")
+		
+		-- ReplicatedStorage
+		local ReplicatedStorage = game:GetService("ReplicatedStorage")
+		print("\n[REPLICATED STORAGE]")
+		printChildren(ReplicatedStorage, "  ")
+		
+		-- ReplicatedFirst
+		local ReplicatedFirst = game:GetService("ReplicatedFirst")
+		print("\n[REPLICATED FIRST]")
+		printChildren(ReplicatedFirst, "  ")
+		
+		-- ServerStorage (puede dar error si no tienes acceso)
+		pcall(function()
+			local ServerStorage = game:GetService("ServerStorage")
+			print("\n[SERVER STORAGE]")
+			printChildren(ServerStorage, "  ")
+		end)
+		
+		-- StarterGui
+		local StarterGui = game:GetService("StarterGui")
+		print("\n[STARTER GUI]")
+		printChildren(StarterGui, "  ")
+		
+		-- StarterPack
+		local StarterPack = game:GetService("StarterPack")
+		print("\n[STARTER PACK]")
+		printChildren(StarterPack, "  ")
+		
+		-- Lighting
+		local Lighting = game:GetService("Lighting")
+		print("\n[LIGHTING]")
+		printChildren(Lighting, "  ")
+		
+		-- Players
+		local Players = game:GetService("Players")
+		print("\n[PLAYERS]")
+		for _, player in ipairs(Players:GetPlayers()) do
+			print("  ├─ " .. player.Name .. " (Player)")
+		end
+		
+		print("\n" .. string.rep("=", 50))
+		print("FIN DE LA ESTRUCTURA")
+		print(string.rep("=", 50) .. "\n")
 	end
 })
