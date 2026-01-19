@@ -1,16 +1,4 @@
-MovementTab:CreateButton({
-	Name = "Obtener Poción (Potion RemoteEvent)",
-	Callback = function()
-		-- Intenta disparar el RemoteEvent de la poción
-		local potionRemote = game:GetService("ReplicatedStorage").Packages.Bridge.Remotes.Potion.RemoteEvent
-		if potionRemote then
-			potionRemote:FireServer()
-			print("Intentando obtener la poción usando el RemoteEvent.")
-		else
-			warn("No se encontró el RemoteEvent de la poción.")
-		end
-	end
-})
+
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
@@ -256,6 +244,20 @@ MovementTab:CreateToggle({
 					task.wait()
 				end
 			end)
+		end
+	end
+})
+
+MovementTab:CreateButton({
+	Name = "Obtener Poción (Potion RemoteEvent)",
+	Callback = function()
+		-- Intenta disparar el RemoteEvent de la poción
+		local potionRemote = game:GetService("ReplicatedStorage").Packages.Bridge.Remotes.Potion.RemoteEvent
+		if potionRemote then
+			potionRemote:FireServer()
+			print("Intentando obtener la poción usando el RemoteEvent.")
+		else
+			warn("No se encontró el RemoteEvent de la poción.")
 		end
 	end
 })
