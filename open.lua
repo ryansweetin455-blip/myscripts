@@ -1,14 +1,15 @@
+
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-	Name = "Example",
+	Name = "+1 Speed Bridge Building",
 	LoadingTitle = "Rayfield UI",
 	ConfigurationSaving = {
 		Enabled = false
 	}
 })
 
--- Movimiento: botón para correr más rápido e input para velocidad
+-- Movement: button to run faster and input for speed
 local Player = game.Players.LocalPlayer
 local humanoid
 
@@ -32,39 +33,39 @@ local function clamp(n, min, max)
 	return math.max(min, math.min(max, n))
 end
 
-local desiredSpeed = 32 -- valor por defecto para correr más rápido
-local autoApply = true -- alterna aplicar automáticamente desde el input
+local desiredSpeed = 32 -- default value to run faster
+local autoApply = true -- toggle to auto apply from input
 local RunService = game:GetService("RunService")
 local autoFarm = false
 local maintainConn
-local pendingTransactions = {} -- Rastrear transacciones pendientes
+local pendingTransactions = {} -- Track pending transactions
 
--- Crear una pestaña de movimiento
-local MovementTab = Window:CreateTab("Movimiento")
+-- Create a movement tab
+local MovementTab = Window:CreateTab("Movement")
 
--- Escuchar respuestas del servidor
+-- Listen for server responses
 local function setupResponseListener()
 	pcall(function()
 		local ReplicatedStorage = game:GetService("ReplicatedStorage")
 		local PostieReceived = ReplicatedStorage:WaitForChild("PostieReceived", 5)
-		
-		PostieReceived.OnClientEvent:Connect(function(transactionID, exito, mensaje)
+        
+		PostieReceived.OnClientEvent:Connect(function(transactionID, success, message)
 			if pendingTransactions[transactionID] then
-				if exito then
-					print("✅ CONFIRMADO: " .. mensaje)
+				if success then
+					print("✅ CONFIRMED: " .. message)
 				else
-					print("❌ RECHAZADO: " .. mensaje)
+					print("❌ REJECTED: " .. message)
 				end
 				pendingTransactions[transactionID] = nil
 			end
 		end)
-		print("✓ Listener de servidor configurado")
+		print("✓ Server listener set up")
 	end)
 end
 
 setupResponseListener()
 
--- Label de estado de velocidad y utilidades
+-- Speed status label and utilities
 local SpeedLabel = MovementTab:CreateLabel("WALK SPEED: " .. tostring(desiredSpeed))
 
 local function applySpeed()
@@ -76,15 +77,14 @@ local function applySpeed()
 			humanoid.WalkSpeed = desiredSpeed
 		end)
 		if not success then
-			warn("Error al aplicar velocidad: " .. tostring(err))
+			warn("Error applying speed: " .. tostring(err))
 		end
 		return success
 	else
-		warn("Humanoid no encontrado. Intenta de nuevo en un momento.")
+		warn("Humanoid not found. Try again in a moment.")
 		return false
 	end
 end
-
 
 local function updateSpeedLabel()
 	pcall(function()
@@ -94,7 +94,7 @@ local function updateSpeedLabel()
 	end)
 end
 
--- Slider para ajustar la velocidad de forma cómoda
+-- Slider to adjust speed easily
 local SpeedSlider = MovementTab:CreateSlider({
 	Name = "Walk Speed",
 	Range = {8, 500},
@@ -106,7 +106,7 @@ local SpeedSlider = MovementTab:CreateSlider({
 		if applied then
 			updateSpeedLabel()
 		else
-			-- Si no se pudo aplicar, intenta de nuevo después de un breve retraso
+			-- If not applied, try again after a short delay
 			task.wait(0.1)
 			applySpeed()
 			updateSpeedLabel()
@@ -115,8 +115,8 @@ local SpeedSlider = MovementTab:CreateSlider({
 })
 
 MovementTab:CreateInput({
-	Name = "Velocidad deseada",
-	PlaceholderText = "Ej: 32",
+	Name = "Desired Speed",
+	PlaceholderText = "Ex: 32",
 	RemoveTextAfterFocusLost = false,
 	Callback = function(text)
 		local n = tonumber(text)
@@ -125,7 +125,7 @@ MovementTab:CreateInput({
 			if autoApply then
 				applySpeed()
 			end
-			-- Sincronizar el slider
+			-- Sync the slider
 			pcall(function()
 				if SpeedSlider and SpeedSlider.SetValue then
 					SpeedSlider:SetValue(desiredSpeed)
@@ -137,20 +137,20 @@ MovementTab:CreateInput({
 })
 
 MovementTab:CreateButton({
-	Name = "Correr más rápido",
+	Name = "Run Faster",
 	Callback = function()
 		applySpeed()
 		updateSpeedLabel()
 	end
 })
 
--- Botón de restablecimiento a velocidad estándar
+-- Button to reset to standard speed
 MovementTab:CreateButton({
-	Name = "Restablecer velocidad (16)",
+	Name = "Reset Speed (16)",
 	Callback = function()
 		desiredSpeed = 16
 		applySpeed()
-		-- Sincronizar el slider
+		-- Sync the slider
 		pcall(function()
 			if SpeedSlider and SpeedSlider.SetValue then
 				SpeedSlider:SetValue(16)
@@ -160,9 +160,9 @@ MovementTab:CreateButton({
 	end
 })
 
--- Botón para ver todo el juego en consola
+-- Button to print the whole game structure in console
 MovementTab:CreateButton({
-	Name = "Ver Todo el Juego (Consola)",
+	Name = "Print Full Game (Console)",
 	Callback = function()
 		local function printChildren(parent, indent)
 			indent = indent or ""
@@ -170,61 +170,61 @@ MovementTab:CreateButton({
 				print(indent .. "├─ " .. child.Name .. " (" .. child.ClassName .. ")")
 			end
 		end
-		
+        
 		print("\n" .. string.rep("=", 50))
-		print("ESTRUCTURA DEL JUEGO")
+		print("GAME STRUCTURE")
 		print(string.rep("=", 50))
-		
+        
 		-- Workspace
 		print("\n[WORKSPACE]")
 		printChildren(workspace, "  ")
-		
+        
 		-- ReplicatedStorage
 		local ReplicatedStorage = game:GetService("ReplicatedStorage")
 		print("\n[REPLICATED STORAGE]")
 		printChildren(ReplicatedStorage, "  ")
-		
+        
 		-- ReplicatedFirst
 		local ReplicatedFirst = game:GetService("ReplicatedFirst")
 		print("\n[REPLICATED FIRST]")
 		printChildren(ReplicatedFirst, "  ")
-		
-		-- ServerStorage (puede dar error si no tienes acceso)
+        
+		-- ServerStorage (may error if you don't have access)
 		pcall(function()
 			local ServerStorage = game:GetService("ServerStorage")
 			print("\n[SERVER STORAGE]")
 			printChildren(ServerStorage, "  ")
 		end)
-		
+        
 		-- StarterGui
 		local StarterGui = game:GetService("StarterGui")
 		print("\n[STARTER GUI]")
 		printChildren(StarterGui, "  ")
-		
+        
 		-- StarterPack
 		local StarterPack = game:GetService("StarterPack")
 		print("\n[STARTER PACK]")
 		printChildren(StarterPack, "  ")
-		
+        
 		-- Lighting
 		local Lighting = game:GetService("Lighting")
 		print("\n[LIGHTING]")
 		printChildren(Lighting, "  ")
-		
+        
 		-- Players
 		local Players = game:GetService("Players")
 		print("\n[PLAYERS]")
 		for _, player in ipairs(Players:GetPlayers()) do
 			print("  ├─ " .. player.Name .. " (Player)")
 		end
-		
+        
 		print("\n" .. string.rep("=", 50))
-		print("FIN DE LA ESTRUCTURA")
+		print("END OF STRUCTURE")
 		print(string.rep("=", 50) .. "\n")
 	end
 })
 
--- Toggle para activar/desactivar el bucle de dinero infinito y auto rebirth
+-- Toggle to enable/disable infinite money and auto rebirth loop
 local autoFarmActive = false
 local autoFarmThread
 
@@ -246,18 +246,3 @@ MovementTab:CreateToggle({
 		end
 	end
 })
-
-MovementTab:CreateButton({
-	Name = "Obtener Poción (Potion RemoteEvent)",
-	Callback = function()
-		-- Intenta disparar el RemoteEvent de la poción
-		local potionRemote = game:GetService("ReplicatedStorage").Packages.Bridge.Remotes.Potion.RemoteEvent
-		if potionRemote then
-			potionRemote:FireServer()
-			print("Intentando obtener la poción usando el RemoteEvent.")
-		else
-			warn("No se encontró el RemoteEvent de la poción.")
-		end
-	end
-})
-
