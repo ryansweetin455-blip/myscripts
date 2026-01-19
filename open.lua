@@ -223,9 +223,26 @@ MovementTab:CreateButton({
 		print(string.rep("=", 50) .. "\n")
 	end
 })
-MovementTab:CreateButton({
-    Name = "Inf Money & Auto Rebirth",
-    Callback = function()
-        loadstring(game:HttpGet("https://rawscripts.net/raw/+1-Speed-Bridge-Building-inf-money-auto-rebirth-85067"))()
-    end
+
+-- Toggle para activar/desactivar el bucle de dinero infinito y auto rebirth
+local autoFarmActive = false
+local autoFarmThread
+
+MovementTab:CreateToggle({
+	Name = "Auto Money & Rebirth (Loop)",
+	CurrentValue = false,
+	Callback = function(state)
+		autoFarmActive = state
+		if autoFarmActive then
+			autoFarmThread = task.spawn(function()
+				while autoFarmActive do
+					pcall(function()
+						game:GetService("ReplicatedStorage").Packages.Bridge.Remotes.BridgePurchase.RemoteEvent:FireServer(-9e100)
+						game:GetService("ReplicatedStorage").Packages.Bridge.Remotes.Rebirth.RemoteEvent:FireServer()
+					end)
+					task.wait()
+				end
+			end)
+		end
+	end
 })
